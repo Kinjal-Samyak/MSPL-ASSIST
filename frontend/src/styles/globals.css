@@ -1,0 +1,184 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Enterprise theme tokens - light mode (default), as "R G B" triplets so Tailwind can apply
+     * opacity modifiers (bg-primary/10, ring-primary/20, ...) via its rgb(var(...) / <alpha>)
+     * convention. Referenced by tailwind.config.js's background/surface/sidebar/primary/accent/
+     * border/status color keys, so every component using those utility classes picks these up
+     * automatically - this pair of files is the single source of truth for the theme. */
+    --color-background: 244 247 250; /* #F4F7FA */
+    --color-surface: 255 255 255; /* #FFFFFF */
+    --color-sidebar: 15 23 42; /* #0F172A */
+    --color-sidebar-hover: 30 41 59; /* #1E293B */
+    --color-primary: 29 78 216; /* #1D4ED8 */
+    --color-primary-hover: 30 64 175; /* #1E40AF */
+    --color-accent: 15 118 110; /* #0F766E */
+    --color-border: 226 232 240; /* #E2E8F0 */
+    --color-success: 21 128 61; /* #15803D */
+    --color-warning: 217 119 6; /* #D97706 */
+    --color-danger: 220 38 38; /* #DC2626 */
+    --color-info: 2 132 199; /* #0284C7 */
+    --color-neutral: 107 114 128; /* #6B7280 */
+  }
+
+  .dark {
+    /* Dark mode keeps the app's existing slate-950 based palette - this theme pass only replaces
+     * the light-mode enterprise look, per spec ("do not modify state management" / preserve
+     * existing dark mode toggle behaviour). */
+    --color-background: 2 6 23; /* #020617 */
+    --color-surface: 15 23 42; /* #0F172A */
+    --color-sidebar: 15 23 42; /* #0F172A */
+    --color-sidebar-hover: 30 41 59; /* #1E293B */
+    --color-primary: 59 130 246; /* #3B82F6 */
+    --color-primary-hover: 96 165 250; /* #60A5FA */
+    --color-accent: 20 184 166; /* #14B8A6 */
+    --color-border: 30 41 59; /* #1E293B */
+    --color-success: 34 197 94; /* #22C55E */
+    --color-warning: 245 158 11; /* #F59E0B */
+    --color-danger: 239 68 68; /* #EF4444 */
+    --color-info: 56 189 248; /* #38BDF8 */
+    --color-neutral: 148 163 184; /* #94A3B8 */
+  }
+
+  html {
+    font-family:
+      'Inter',
+      system-ui,
+      -apple-system,
+      BlinkMacSystemFont,
+      'Segoe UI',
+      Roboto,
+      'Helvetica Neue',
+      Arial,
+      sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply bg-background text-slate-900 dark:text-slate-100;
+    min-width: 320px;
+    letter-spacing: -0.01em;
+    font-size: 15px;
+    line-height: 1.6;
+  }
+
+  h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    line-height: 2.5rem;
+    letter-spacing: -0.03125rem;
+  }
+
+  h2 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    line-height: 2rem;
+    letter-spacing: -0.015em;
+  }
+
+  main h1 {
+    font-size: 2rem !important;
+    font-weight: 700 !important;
+    line-height: 2.5rem !important;
+    letter-spacing: -0.03125rem !important;
+  }
+
+  main h2 {
+    font-size: 1.5rem !important;
+    font-weight: 600 !important;
+    line-height: 2rem !important;
+  }
+
+  @media (max-width: 640px) {
+    main h1 {
+      font-size: 1.75rem !important;
+      line-height: 2.25rem !important;
+    }
+
+    main h2 {
+      font-size: 1.25rem !important;
+      line-height: 1.75rem !important;
+    }
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply rounded-full bg-gray-300 dark:bg-gray-700;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-gray-400 dark:bg-gray-600;
+  }
+
+  ::selection {
+    @apply bg-blue-100 text-blue-950 dark:bg-blue-500/40 dark:text-white;
+  }
+}
+
+@layer components {
+  .mspl-page-title {
+    @apply text-[32px] font-bold leading-10 tracking-[-0.03125rem];
+  }
+
+  .mspl-section-title {
+    @apply text-2xl font-semibold leading-8 tracking-[-0.015em];
+  }
+
+  .mspl-card-title {
+    @apply text-base font-semibold leading-6;
+  }
+
+  .mspl-metric {
+    @apply text-4xl font-bold leading-10 tracking-tight tabular-nums;
+  }
+
+  .mspl-table {
+    @apply text-sm leading-5 tabular-nums;
+  }
+
+  .mspl-surface {
+    @apply bg-surface;
+  }
+
+  html:not(.dark) .conversation-modern [class*='bg-slate-900'],
+  html:not(.dark) .conversation-modern [class*='bg-slate-800'] {
+    background-color: #ffffff !important;
+  }
+
+  html:not(.dark) .conversation-modern [class*='border-slate-700'],
+  html:not(.dark) .conversation-modern [class*='border-slate-600'] {
+    border-color: #e2e8f0 !important;
+  }
+
+  html:not(.dark) .conversation-modern [class*='text-slate-50'],
+  html:not(.dark) .conversation-modern [class*='text-slate-100'],
+  html:not(.dark) .conversation-modern [class*='text-slate-200'] {
+    color: #0f172a !important;
+  }
+
+  html:not(.dark) .conversation-modern [class*='text-slate-300'],
+  html:not(.dark) .conversation-modern [class*='text-slate-400'] {
+    color: #64748b !important;
+  }
+}
