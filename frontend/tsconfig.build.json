@@ -1,0 +1,17 @@
+{
+  // Production build type-check: same rules as tsconfig.json, minus the test
+  // files. Tests are still type-checked by `npm run lint` and at `vitest run`
+  // time; compiling them here only coupled the deployable image to test-only
+  // dev dependencies (which is how a missing @testing-library/dom peer broke
+  // `docker build`).
+  "extends": "./tsconfig.json",
+  "include": ["src"],
+  "exclude": [
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx",
+    "src/**/*.spec.ts",
+    "src/**/*.spec.tsx",
+    "src/tests",
+    "tests"
+  ]
+}
