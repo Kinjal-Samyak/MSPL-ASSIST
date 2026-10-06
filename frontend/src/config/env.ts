@@ -1,0 +1,12 @@
+const DEFAULT_API_BASE_URL = 'http://localhost:4000';
+const DEFAULT_APP_NAME = 'MSPL Assist';
+const DEFAULT_APP_VERSION = '1.0.0';
+
+export const env = {
+  VITE_API_BASE_URL: import.meta.env.VITE_API_BASE_URL ?? DEFAULT_API_BASE_URL,
+  VITE_LIVE_API_BASE_URL: import.meta.env.VITE_LIVE_API_BASE_URL,
+  VITE_TRAINING_API_BASE_URL: import.meta.env.VITE_TRAINING_API_BASE_URL,
+  VITE_MSPL_RUNTIME_ENV: import.meta.env.VITE_MSPL_RUNTIME_ENV,
+  VITE_APP_NAME: import.meta.env.VITE_APP_NAME ?? DEFAULT_APP_NAME,
+  VITE_APP_VERSION: import.meta.env.VITE_APP_VERSION ?? DEFAULT_APP_VERSION,
+} as const;
