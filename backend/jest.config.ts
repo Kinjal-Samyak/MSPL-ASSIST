@@ -1,0 +1,57 @@
+import type { Config } from "jest";
+
+const config: Config = {
+  preset: "ts-jest",
+  testEnvironment: "node",
+  roots: ["<rootDir>/src/tests"],
+  testMatch: ["**/*.spec.ts", "**/*.test.ts"],
+  setupFilesAfterEnv: ["<rootDir>/src/tests/test/setup.ts"],
+  clearMocks: true,
+  restoreMocks: true,
+  collectCoverage: true,
+  collectCoverageFrom: [
+    "src/validators/**/*.ts",
+    "src/services/customer.service.ts",
+    "src/services/deployment.service.ts",
+    "src/services/master.service.ts",
+    "src/services/ticket.service.ts",
+    "src/services/ticket-number.service.ts",
+    "src/services/conversation.service.ts",
+    "src/conversations/conversation.engine.ts",
+    "src/conversations/conversation.command.ts",
+    "src/conversations/conversation.state.ts",
+    "src/conversations/state-handler.factory.ts",
+    "src/conversations/conversation-result.ts",
+    "src/conversations/helpers/menu-builder.ts",
+    "src/conversations/helpers/confirmation-message.builder.ts",
+    "src/conversations/mappers/conversation-ticket.mapper.ts",
+    "src/conversations/handlers/main-menu.handler.ts",
+    "src/conversations/handlers/issue-category.handler.ts",
+    "src/conversations/handlers/issue-description.handler.ts",
+    "src/conversations/handlers/photo.handler.ts",
+    "src/conversations/handlers/registered-mobile.handler.ts",
+    "src/conversations/handlers/customer-verification.handler.ts",
+    "src/conversations/handlers/deployment-verification.handler.ts",
+    "src/conversations/handlers/ticket-creation.handler.ts",
+    "src/conversations/handlers/confirmation.handler.ts",
+    "src/shared/validation-result.ts",
+    "src/shared/log-event.ts",
+    "src/utils/logger.ts",
+  ],
+  coverageDirectory: "coverage",
+  coverageReporters: ["html", "lcov", "text-summary"],
+  coverageThreshold: {
+    global: {
+      lines: 80,
+      branches: 50,
+      functions: 80,
+      statements: 80,
+    },
+  },
+  transform: {
+    "^.+\\.ts$": ["ts-jest", { tsconfig: "<rootDir>/tsconfig.test.json" }],
+  },
+  moduleFileExtensions: ["ts", "js", "json"],
+};
+
+export default config;
