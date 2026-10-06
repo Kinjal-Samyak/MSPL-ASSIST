@@ -1,0 +1,122 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: mspl-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-mspl_assist}
+      POSTGRES_USER: ${POSTGRES_USER:-mspl_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-Motovolt@1234}
+    ports:
+      - "${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - mspl-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-mspl_user} -d ${POSTGRES_DB:-mspl_assist}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  pgadmin:
+    image: dpage/pgadmin4:8
+    container_name: mspl-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-admin@msplassist.local}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-admin123}
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+    ports:
+      - "${PGADMIN_PORT:-5050}:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    networks:
+      - mspl-net
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "python3 -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost/misc/ping').status == 200 else 1)\"",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+      target: build
+    profiles: ["tools"]
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable
+      DIRECT_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable
+    working_dir: /app/backend
+    command: ["npm", "run", "prisma:deploy"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - mspl-net
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: mspl-backend
+    env_file:
+      - backend/.env
+    environment:
+      NODE_ENV: production
+      PORT: ${BACKEND_PORT:-3446}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-mspl_user}:${POSTGRES_PASSWORD:-mspl_password}@postgres:5432/${POSTGRES_DB:-mspl_assist}?schema=public
+      DIRECT_URL: postgresql://${POSTGRES_USER:-mspl_user}:${POSTGRES_PASSWORD:-mspl_password}@postgres:5432/${POSTGRES_DB:-mspl_assist}?schema=public
+      CONVERSATION_SESSION_TIMEOUT_HOURS: ${CONVERSATION_SESSION_TIMEOUT_HOURS:-24}
+    ports:
+      - "${BACKEND_PORT:-3446}:3446"
+    networks:
+      - mspl-net
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "node -e \"require('http').get('http://localhost:3446/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1));\"",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL}
+        VITE_MSPL_RUNTIME_ENV: ${VITE_MSPL_RUNTIME_ENV:-production}
+        VITE_APP_NAME: ${VITE_APP_NAME:-MSPL Assist}
+        VITE_APP_VERSION: ${VITE_APP_VERSION:-1.0.0}
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "3443:80"
+    networks:
+      - mspl-net
+
+volumes:
+  postgres_data:
+  pgadmin_data:
+  backend_node_modules:
+
+networks:
+  mspl-net:

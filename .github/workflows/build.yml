@@ -1,0 +1,95 @@
+name: Build
+
+on:
+  push:
+    branches:
+      - "**"
+  pull_request:
+    branches:
+      - "**"
+
+env:
+  NODE_VERSION: "20"
+  # schema.prisma's datasource declares both url (DATABASE_URL) and directUrl (DIRECT_URL) - Prisma
+  # CLI commands (validate, generate, migrate) fail to resolve config without DIRECT_URL set, even
+  # against a plain non-pooled CI Postgres where the two are identical. See DEPLOYMENT_GUIDE.md §5.
+  DATABASE_URL: "postgresql://ci_user:ci_password@localhost:5432/mspl_assist_ci?schema=public"
+  DIRECT_URL: "postgresql://ci_user:ci_password@localhost:5432/mspl_assist_ci?schema=public"
+
+jobs:
+  build-and-validate:
+    name: Build and Validate
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            backend/package-lock.json
+            frontend/package-lock.json
+
+      # Backend and frontend depend on the @mspl/* packages via file:../packages/* references
+      # that resolve to each package's dist/ output. That output is gitignored (it's build
+      # output, not source), so on a clean checkout it does not exist yet - build it here,
+      # from the workspace root, before anything that needs it.
+      - name: Install root workspace dependencies
+        run: npm ci
+
+      - name: Build shared packages
+        run: npm run build:shared
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Prisma Validate
+        working-directory: backend
+        run: npx prisma validate
+
+      - name: Prisma Generate
+        working-directory: backend
+        run: npx prisma generate
+
+      - name: TypeScript Build (Backend)
+        working-directory: backend
+        run: npm run build
+
+      - name: Frontend Build
+        working-directory: frontend
+        run: npm run build
+
+      - name: Unit Tests
+        working-directory: backend
+        run: npm run test:unit
+
+      - name: Integration Tests
+        working-directory: backend
+        run: npm run test:integration
+
+      - name: API Tests
+        working-directory: backend
+        run: npm run test:api
+
+      - name: Coverage Report
+        working-directory: backend
+        run: npm run test:coverage
+
+      - name: Upload Coverage Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage
+          path: |
+            backend/coverage
+            backend/coverage/integration
+          if-no-files-found: error

@@ -1,0 +1,1 @@
+ALTER TYPE "JobCardStage" ADD VALUE 'COMPLETED';

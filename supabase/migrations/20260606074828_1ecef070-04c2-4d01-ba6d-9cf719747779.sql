@@ -1,0 +1,2 @@
+ALTER TABLE public.stage_documents DROP CONSTRAINT stage_documents_stage_id_check;
+ALTER TABLE public.stage_documents ADD CONSTRAINT stage_documents_stage_id_check CHECK (stage_id = ANY (ARRAY['pi'::text, 'billing'::text, 'pdi_initial'::text, 'invoices'::text, 'form21_22'::text, 'rto'::text, 'insurance'::text, 'pdi_final'::text, 'misc'::text]));

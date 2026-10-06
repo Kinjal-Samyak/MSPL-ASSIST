@@ -1,0 +1,1878 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Customer {
+  id                   String                @id @default(uuid()) @db.Uuid
+  name                 String
+  registeredMobile     String
+  alternateMobile      String?
+  whatsAppNumber       String?
+  email                String?
+  address              String?
+  status               CustomerStatus        @default(ACTIVE)
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  conversationSessions ConversationSession[]
+  deployments          Deployment[]
+  tickets              Ticket[]
+
+  @@index([status])
+  @@index([email])
+  @@index([registeredMobile])
+}
+
+model User {
+  id                             String                   @id @default(uuid()) @db.Uuid
+  name                           String
+  email                          String                   @unique
+  mobile                         String
+  role                           Role                     @default(COORDINATOR)
+  createdAt                      DateTime                 @default(now())
+  updatedAt                      DateTime                 @updatedAt
+  active                         Boolean                  @default(true)
+  deletedAt                      DateTime?
+  department                     String?
+  passwordHash                   String?
+  passwordChangedAt              DateTime?
+  failedLoginAttempts            Int                      @default(0)
+  lockedAt                       DateTime?
+  refreshTokenExpiresAt          DateTime?
+  refreshTokenHash               String?
+  appSettings                    AppSetting[]             @relation("AppSettingUpdatedBy")
+  columnMappingsCreated          ColumnMapping[]          @relation("ColumnMappingCreatedBy")
+  columnMappingsUpdated          ColumnMapping[]          @relation("ColumnMappingUpdatedBy")
+  importBatches                  ImportBatch[]            @relation("ImportBatchImportedBy")
+  microsoftGraphTokensCreated    MicrosoftGraphToken[]    @relation("MicrosoftGraphTokenCreatedBy")
+  microsoftGraphTokensUpdated    MicrosoftGraphToken[]    @relation("MicrosoftGraphTokenUpdatedBy")
+  relationshipMappingsCreated    RelationshipMapping[]    @relation("RelationshipMappingCreatedBy")
+  relationshipMappingsUpdated    RelationshipMapping[]    @relation("RelationshipMappingUpdatedBy")
+  syncHistoriesInitiated         SyncHistory[]            @relation("SyncHistoryInitiatedBy")
+  tickets                        Ticket[]                 @relation("AssignedTickets")
+  publishedTickets               Ticket[]                 @relation("PublishedBy")
+  serviceTlTickets               Ticket[]                 @relation("ServiceTlTickets")
+  jobCards                       JobCard[]                @relation("JobCardTechnician")
+  jobCardPdfsGenerated           JobCardPdfHistory[]
+  ticketActivities               TicketActivity[]
+  comments                       TicketComment[]
+  ticketHistories                TicketHistory[]          @relation("StatusUpdates")
+  userHubs                       UserHub[]
+  workbookConfigurationsCreated  WorkbookConfiguration[]  @relation("WorkbookConfigurationCreatedBy")
+  workbookConfigurationsUpdated  WorkbookConfiguration[]  @relation("WorkbookConfigurationUpdatedBy")
+  workbookSchemaVersionsVerified WorkbookSchemaVersion[]  @relation("WorkbookSchemaVersionVerifiedBy")
+  worksheetConfigurationsCreated WorksheetConfiguration[] @relation("WorksheetConfigurationCreatedBy")
+  worksheetConfigurationsUpdated WorksheetConfiguration[] @relation("WorksheetConfigurationUpdatedBy")
+  closureRequestsMade            TicketClosureRequest[]   @relation("TicketClosureRequestedBy")
+  closureRequestsDecided         TicketClosureRequest[]   @relation("TicketClosureDecidedBy")
+  notificationsSent              NotificationMessage[]    @relation("NotificationSentBy")
+  sparePartRequestsMade          JobCardSparePartRequest[] @relation("SparePartRequestedBy")
+  sparePartRequestsDecided       JobCardSparePartRequest[] @relation("SparePartDecidedBy")
+  sparePartRequestsReversed      JobCardSparePartRequest[] @relation("SparePartReversedBy")
+  sparePartReturnRequestsMade    JobCardSparePartReturnRequest[] @relation("SparePartReturnRequestedBy")
+  sparePartReturnRequestsDecided JobCardSparePartReturnRequest[] @relation("SparePartReturnRequestDecidedBy")
+  jobCardSparePartsConsumed      JobCardSparePart[]              @relation("JobCardSparePartConsumedBy")
+  jobCardsReadyForDeliveryBy     JobCard[]                @relation("JobCardReadyForDeliveryBy")
+  inventoryTransactionsAsTechnician PartInventoryTransaction[] @relation("PartInventoryTransactionTechnician")
+  inventoryTransactionsPerformed    PartInventoryTransaction[] @relation("PartInventoryTransactionPerformedBy")
+  partsInventoryUploads             PartsInventoryUpload[]
+  servicePolicyVersionsCreated       ServicePolicyVersion[]
+  ticketPriorityChangesMade          TicketPriorityChange[]
+  procurementRequestsRequested       ProcurementRequest[]    @relation("ProcurementRequestRequestedBy")
+  procurementRequestsApproved        ProcurementRequest[]    @relation("ProcurementRequestApprovedBy")
+  purchaseOrdersCreated              PurchaseOrder[]         @relation("PurchaseOrderCreatedBy")
+
+  @@index([mobile])
+  @@index([active])
+  @@index([deletedAt])
+}
+
+model ImportBatch {
+  id            String            @id @default(uuid()) @db.Uuid
+  fileName      String
+  fileSizeBytes Int
+  worksheetName String
+  status        ImportBatchStatus @default(UPLOADED)
+  rowsFound     Int               @default(0)
+  rowsValid     Int               @default(0)
+  rowsInserted  Int               @default(0)
+  rowsUpdated   Int               @default(0)
+  rowsDuplicate Int               @default(0)
+  rowsSkipped   Int               @default(0)
+  rowsFailed    Int               @default(0)
+  durationMs    Int?
+  columnMapping Json
+  preview       Json?
+  importedById  String?           @db.Uuid
+  committedAt   DateTime?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  importedBy    User?             @relation("ImportBatchImportedBy", fields: [importedById], references: [id])
+  errors        ImportError[]
+
+  @@index([status, createdAt])
+  @@index([importedById])
+}
+
+model ImportError {
+  id            String              @id @default(uuid()) @db.Uuid
+  importBatchId String              @db.Uuid
+  rowNumber     Int
+  severity      ImportErrorSeverity
+  errorType     String
+  description   String
+  suggestedFix  String
+  rowData       Json?
+  createdAt     DateTime            @default(now())
+  importBatch   ImportBatch         @relation(fields: [importBatchId], references: [id], onDelete: Cascade)
+
+  @@index([importBatchId, rowNumber])
+  @@index([severity])
+}
+
+model Hub {
+  id          String       @id @default(uuid()) @db.Uuid
+  name        String       @unique
+  city        String
+  state       String
+  active      Boolean      @default(true)
+  deletedAt   DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  deployments Deployment[]
+  userHubs    UserHub[]
+  inventoryTransactions PartInventoryTransaction[]
+
+  @@index([active])
+}
+
+model VehicleModel {
+  id            String              @id @default(uuid()) @db.Uuid
+  modelCode     String              @unique
+  displayName   String
+  manufacturer  String
+  active        Boolean             @default(true)
+  deletedAt     DateTime?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+  vehicleType   String?
+  /// Downtime SLA target in days, used by Service Loss Analytics. Admin-configurable, not hardcoded.
+  slaTargetDays Int                 @default(3)
+  deployments   Deployment[]
+  rentalRates   VehicleModelRate[]
+  inventoryTransactions PartInventoryTransaction[]
+
+  @@index([active])
+}
+
+/// Effective-dated rental rate history for Service Loss Analytics. A new row is added whenever the
+/// rate changes (effectiveTo on the prior row is set to the day before) - existing rows are never
+/// edited in place, so historical tickets always resolve to the rate that was actually in force on
+/// their creation date, and past Service Loss figures never drift.
+model VehicleModelRate {
+  id             String       @id @default(uuid()) @db.Uuid
+  vehicleModelId String       @db.Uuid
+  weeklyRental   Decimal      @db.Decimal(12, 2)
+  dailyRental    Decimal      @db.Decimal(12, 2)
+  effectiveFrom  DateTime
+  effectiveTo    DateTime?
+  active         Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  vehicleModel   VehicleModel @relation(fields: [vehicleModelId], references: [id])
+
+  @@index([vehicleModelId, effectiveFrom])
+}
+
+model Deployment {
+  id             String       @id @default(uuid()) @db.Uuid
+  customerId     String       @db.Uuid
+  mvTrackNumber  String
+  vehicleNumber  String
+  vehicleModelId String       @db.Uuid
+  hubId          String       @db.Uuid
+  rentalStatus   RentalStatus
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  customer       Customer     @relation(fields: [customerId], references: [id])
+  hub            Hub          @relation(fields: [hubId], references: [id])
+  vehicleModel   VehicleModel @relation(fields: [vehicleModelId], references: [id])
+  tickets        Ticket[]
+
+  @@index([customerId])
+  @@index([mvTrackNumber])
+  @@index([vehicleNumber])
+  @@index([vehicleModelId])
+  @@index([hubId])
+}
+
+model StatusMaster {
+  id                 String          @id @default(uuid()) @db.Uuid
+  name               String          @unique
+  displayOrder       Int
+  customerVisible    Boolean         @default(false)
+  active             Boolean         @default(true)
+  deletedAt          DateTime?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+  tickets            Ticket[]
+  ticketHistoriesNew TicketHistory[] @relation("NewStatus")
+  ticketHistoriesOld TicketHistory[] @relation("OldStatus")
+
+  @@index([active])
+  @@index([displayOrder])
+}
+
+model IssueCategory {
+  id               String            @id @default(uuid()) @db.Uuid
+  name             String            @unique
+  displayOrder     Int
+  active           Boolean           @default(true)
+  deletedAt        DateTime?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  tickets          Ticket[]
+  ticketIssueItems TicketIssueItem[]
+
+  @@index([active])
+  @@index([displayOrder])
+}
+
+model PartCategory {
+  id            String            @id @default(uuid()) @db.Uuid
+  name          String            @unique
+  description   String?
+  displayOrder  Int               @default(0)
+  active        Boolean           @default(true)
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  parts         Part[]
+  subcategories PartSubcategory[]
+}
+
+model PartSubcategory {
+  id          String       @id @default(uuid()) @db.Uuid
+  categoryId  String       @db.Uuid
+  name        String
+  description String?
+  active      Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  parts       Part[]
+  category    PartCategory @relation(fields: [categoryId], references: [id])
+
+  @@unique([categoryId, name])
+  @@index([categoryId, active])
+}
+
+model Part {
+  id                 String                     @id @default(uuid()) @db.Uuid
+  partCode           String                     @unique
+  partName           String
+  description        String?
+  categoryId         String                     @db.Uuid
+  subcategoryId      String?                    @db.Uuid
+  brand              String?
+  manufacturer       String?
+  oemPartNumber      String?
+  internalPartNumber String?
+  unitOfMeasure      String
+  partCost           Decimal                    @db.Decimal(12, 2)
+  warrantyEligible   Boolean                    @default(false)
+  consumable         Boolean                    @default(false)
+  minimumStock       Int                        @default(0)
+  reorderLevel       Int                        @default(0)
+  maximumStock       Int?
+  active             Boolean                    @default(true)
+  remarks            String?
+  availableQuantity  Int                        @default(0)
+  createdAt          DateTime                   @default(now())
+  updatedAt          DateTime                   @updatedAt
+  category           PartCategory               @relation(fields: [categoryId], references: [id])
+  subcategory        PartSubcategory?           @relation(fields: [subcategoryId], references: [id])
+  compatibilities    PartVehicleCompatibility[]
+  jobCardSpareParts  JobCardSparePart[]
+  sparePartRequests  JobCardSparePartRequest[]
+  sparePartReturnRequests JobCardSparePartReturnRequest[]
+  inventoryTransactions PartInventoryTransaction[]
+  procurementRequests   ProcurementRequest[]
+  purchaseOrderLines    PurchaseOrderLine[]
+
+  @@index([categoryId, active])
+  @@index([subcategoryId])
+  @@index([partName])
+}
+
+model PartVehicleCompatibility {
+  id        String   @id @default(uuid()) @db.Uuid
+  partId    String   @db.Uuid
+  modelCode String
+  modelName String
+  createdAt DateTime @default(now())
+  part      Part     @relation(fields: [partId], references: [id], onDelete: Cascade)
+
+  @@unique([partId, modelCode])
+  @@index([modelCode])
+}
+
+model Ticket {
+  id                   String             @id @default(uuid()) @db.Uuid
+  ticketNumber         String             @unique
+  customerId           String             @db.Uuid
+  deploymentId         String?            @db.Uuid
+  issueCategoryId      String             @db.Uuid
+  statusId             String             @db.Uuid
+  source               TicketSource       @default(WHATSAPP)
+  priority             Priority           @default(MEDIUM)
+  issueDescription     String
+  estimatedCharges     Decimal?           @db.Decimal(12, 2)
+  finalCharges         Decimal?           @db.Decimal(12, 2)
+  coordinatorNotes     String?
+  sendUpdate           Boolean            @default(false)
+  lastPublishedAt      DateTime?
+  lastPublishedById    String?            @db.Uuid
+  notificationStatus   NotificationStatus @default(NOT_SENT)
+  deploymentVerified   Boolean            @default(false)
+  assignedToId         String?            @db.Uuid
+  rowVersion           Int                @default(1)
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  closedAt             DateTime?
+  eta                  DateTime?
+  vehicleTypeSnapshot  String?
+  rideabilityStatus    String?
+  conversationMetadata Json?
+  workflowStage        TicketWorkflowStage @default(CREATED)
+  serviceTlId          String?            @db.Uuid
+  assignedAt           DateTime?
+  escalatedAt          DateTime?
+  deletedAt            DateTime?
+  deletedByName        String?
+  deleteReason         String?
+  deliveryScheduledAt  DateTime?
+  customerAcknowledgedAt DateTime?
+  customerAcknowledgedBy String?
+  paymentMode          String?
+  paymentUtrNumber     String?
+  paymentAmount        Decimal?           @db.Decimal(12, 2)
+  paymentRecordedAt    DateTime?
+  /// A ticket may be reopened by the Coordinator exactly once. reopenCount tracks how many times
+  /// it has happened (only 0 or 1 in practice) and reopenedAt is the timestamp of that single reopen.
+  /// Once reopenCount reaches 1 and the ticket is Closed again, the Coordinator can no longer reopen it -
+  /// they must create a follow-up ticket instead (see parentTicketId below).
+  reopenCount          Int                @default(0)
+  reopenedAt           DateTime?
+  /// Coordinator-initiated "Return to Workshop" from RFD (vehicle failed inspection before delivery).
+  /// Unlike reopen, this can happen more than once per ticket, so it is a plain running counter with
+  /// no cap. Each occurrence also writes a TICKET_RETURNED_TO_WORKSHOP TicketActivity for full history.
+  returnedToWorkshopCount Int              @default(0)
+  returnedToWorkshopAt    DateTime?
+  /// Follow-up ticket linkage: set only on a child ticket created from an already-once-reopened parent.
+  /// The parent ticket is always the original/first ticket in the chain.
+  parentTicketId       String?            @db.Uuid
+  /// Service Loss Analytics freeze fields. rfdAt is stamped the FIRST time the Job Card reaches RFD
+  /// and is never overwritten afterward (even across unlock/rework/reopen cycles), so a ticket's
+  /// Service Loss - and the historical rental rate snapshot it was computed from - never changes
+  /// once set. Open tickets have all four fields null and their loss is computed live instead.
+  rfdAt                  DateTime?
+  serviceLossDailyRental  Decimal?         @db.Decimal(12, 2)
+  serviceLossAmount       Decimal?         @db.Decimal(12, 2)
+  serviceLossFrozenAt     DateTime?
+  /// TAT & SLA Framework additions - additive only, the `priority` enum above is untouched and
+  /// still authoritative for all existing code. priorityDefinitionId/servicePolicyVersionId are
+  /// new-code-only fields (Service Policy module, Ticket Workspace SLA display).
+  priorityDefinitionId   String?             @db.Uuid
+  servicePolicyVersionId String?             @db.Uuid
+  /// Write-once: stamped the first time a Coordinator/Admin opens the ticket detail. Powers the
+  /// "Ticket Response" stage TAT (Ticket Created -> Ticket Opened).
+  openedAt               DateTime?
+  notificationLogs     NotificationLog[]
+  assignedTo           User?              @relation("AssignedTickets", fields: [assignedToId], references: [id])
+  serviceTl            User?              @relation("ServiceTlTickets", fields: [serviceTlId], references: [id])
+  customer             Customer           @relation(fields: [customerId], references: [id])
+  deployment           Deployment?        @relation(fields: [deploymentId], references: [id])
+  issueCategory        IssueCategory      @relation(fields: [issueCategoryId], references: [id])
+  lastPublishedBy      User?              @relation("PublishedBy", fields: [lastPublishedById], references: [id])
+  status               StatusMaster       @relation(fields: [statusId], references: [id])
+  activities           TicketActivity[]
+  attachments          TicketAttachment[]
+  comments             TicketComment[]
+  histories            TicketHistory[]
+  issueItems           TicketIssueItem[]
+  jobCard              JobCard?
+  closureRequests      TicketClosureRequest[]
+  parentTicket         Ticket?            @relation("TicketFollowUps", fields: [parentTicketId], references: [id])
+  followUpTickets      Ticket[]           @relation("TicketFollowUps")
+  inventoryTransactions PartInventoryTransaction[]
+  priorityDefinition   PriorityDefinition? @relation(fields: [priorityDefinitionId], references: [id])
+  servicePolicyVersion ServicePolicyVersion? @relation(fields: [servicePolicyVersionId], references: [id])
+  priorityChanges      TicketPriorityChange[]
+
+  @@index([ticketNumber])
+  @@index([customerId])
+  @@index([deploymentId])
+  @@index([issueCategoryId])
+  @@index([statusId])
+  @@index([priority])
+  @@index([source])
+  @@index([createdAt])
+  @@index([workflowStage])
+  @@index([serviceTlId])
+  @@index([deletedAt])
+  @@index([parentTicketId])
+  @@index([priorityDefinitionId])
+}
+
+/// Coordinator-initiated request to end a ticket outside the normal RFD -> Close path,
+/// gated behind Service TL (or Admin) approval. CANCELLATION is for tickets created by
+/// mistake (terminal status becomes "Cancelled"); EARLY_CLOSURE is for a rider closing
+/// their account / exchanging / upgrading their vehicle (terminal status becomes "Closed",
+/// and the Job Card - if any - is left completely untouched at whatever stage it's in).
+model TicketClosureRequest {
+  id                  String                       @id @default(uuid()) @db.Uuid
+  ticketId            String                       @db.Uuid
+  requestType         TicketClosureRequestType
+  reasonCategory      TicketClosureReasonCategory?
+  reason              String
+  paymentWaived       Boolean                      @default(false)
+  paymentWaiveRemarks String?
+  paymentMode         String?
+  paymentUtrNumber    String?
+  paymentAmount       Decimal?                     @db.Decimal(12, 2)
+  status              TicketClosureRequestStatus   @default(PENDING)
+  requestedById       String                       @db.Uuid
+  requestedAt         DateTime                     @default(now())
+  decidedById         String?                      @db.Uuid
+  decidedAt           DateTime?
+  decisionRemarks     String?
+  createdAt           DateTime                     @default(now())
+  updatedAt           DateTime                     @updatedAt
+
+  ticket      Ticket @relation(fields: [ticketId], references: [id])
+  requestedBy User   @relation("TicketClosureRequestedBy", fields: [requestedById], references: [id])
+  decidedBy   User?  @relation("TicketClosureDecidedBy", fields: [decidedById], references: [id])
+
+  @@index([ticketId])
+  @@index([status])
+}
+
+model Permission {
+  id              String           @id @default(uuid()) @db.Uuid
+  code            String           @unique
+  description     String
+  category        String
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  rolePermissions RolePermission[]
+
+  @@index([category])
+}
+
+model RolePermission {
+  id           String     @id @default(uuid()) @db.Uuid
+  role         Role
+  permissionId String     @db.Uuid
+  granted      Boolean    @default(true)
+  updatedAt    DateTime   @updatedAt
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([role, permissionId])
+  @@index([role])
+}
+
+model AuditLog {
+  id              String   @id @default(uuid()) @db.Uuid
+  entityType      String
+  entityId        String
+  action          String
+  performedById   String?  @db.Uuid
+  performedByName String?
+  performedByRole String?
+  reason          String?
+  metadata        Json?
+  performedAt     DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([performedAt])
+  @@index([action])
+}
+
+model JobCard {
+  id                         String             @id @default(uuid()) @db.Uuid
+  jobCardNumber              String             @unique
+  ticketId                   String             @unique @db.Uuid
+  technicianId               String             @db.Uuid
+  workflowStage              JobCardStage       @default(IN_PROGRESS)
+  initialObservation         String?
+  rootCause                  String?
+  workPerformed               String?
+  otherRequirements          String?
+  technicianRemarks          String?
+  labourCharges              Decimal?           @db.Decimal(12, 2)
+  partsCharges               Decimal?           @db.Decimal(12, 2)
+  otherCharges               Decimal?           @db.Decimal(12, 2)
+  totalCharges               Decimal?           @db.Decimal(12, 2)
+  estimatedCompletionAt      DateTime?
+  actualCompletionAt         DateTime?
+  completedByName            String?
+  closureRemarks             String?
+  version                    Int                @default(1)
+  lastEditedAt               DateTime?
+  partsRequisitionNumber     String?            @unique
+  partsRequisitionCreatedAt  DateTime?
+  /// Stamped once, when the job card transitions to RFD - a requisition can only ever close once
+  /// since RFD is a one-way transition (see runJobCardTransition's from/to stage guard).
+  partsRequisitionClosedAt   DateTime?
+  /// TAT & SLA Framework additions. vehicleReceivedAt is proxied to this row's createdAt (no
+  /// separate "vehicle received" checkpoint exists yet) - stored as its own column so a future
+  /// slice can decouple it without another migration. repairStartedAt is genuinely new: stamped by
+  /// the Technician's explicit "Start Repair" action, distinct from job card creation/assignment.
+  vehicleReceivedAt          DateTime?
+  repairStartedAt            DateTime?
+  /// Final Spare Part Billing (Amendment 2, Version 1.0). Stamped once, the moment the job card
+  /// transitions to RFD - the official financial lock point. finalSparePartsAmount and
+  /// finalBillingSnapshot are computed strictly from each JobCardSparePart's consumedQuantity x
+  /// Part.partCost at that instant (never requested/approved/issued/returned quantity) and are
+  /// never recalculated afterwards; see TicketWorkflowService.buildFinalBillingSnapshot.
+  readyForDeliveryAt         DateTime?
+  readyForDeliveryById       String?            @db.Uuid
+  finalSparePartsAmount      Decimal?           @db.Decimal(12, 2)
+  finalBillingSnapshot       Json?
+  createdAt                  DateTime           @default(now())
+  updatedAt                  DateTime           @updatedAt
+  ticket                     Ticket             @relation(fields: [ticketId], references: [id])
+  technician                 User               @relation("JobCardTechnician", fields: [technicianId], references: [id])
+  readyForDeliveryBy         User?              @relation("JobCardReadyForDeliveryBy", fields: [readyForDeliveryById], references: [id])
+  spareParts                 JobCardSparePart[]
+  sparePartRequests          JobCardSparePartRequest[]
+  sparePartReturnRequests    JobCardSparePartReturnRequest[]
+  pdfHistory                 JobCardPdfHistory[]
+  inventoryTransactions      PartInventoryTransaction[]
+  procurementRequests        ProcurementRequest[]
+
+  @@index([workflowStage])
+  @@index([technicianId])
+}
+
+model JobCardPdfHistory {
+  id            String   @id @default(uuid()) @db.Uuid
+  jobCardId     String   @db.Uuid
+  version       Int
+  fileName      String
+  content       Bytes
+  generatedById String?  @db.Uuid
+  generatedAt   DateTime @default(now())
+  jobCard       JobCard  @relation(fields: [jobCardId], references: [id], onDelete: Cascade)
+  generatedBy   User?    @relation(fields: [generatedById], references: [id])
+
+  @@index([jobCardId])
+  @@index([generatedAt])
+}
+
+model JobCardSparePart {
+  id               String   @id @default(uuid()) @db.Uuid
+  jobCardId        String   @db.Uuid
+  partId           String   @db.Uuid
+  requiredQuantity Int
+  /// Running total already returned to inventory for this job-card+part pair. Remaining
+  /// returnable = requiredQuantity - returnedQuantity. Written by returnSparePartsToInventory.
+  returnedQuantity Int      @default(0)
+  /// How much of the issued (requiredQuantity) amount the Technician actually used during repair -
+  /// recorded by the Technician, never moves inventory (stock already left Central Inventory at
+  /// issue time). Job Card closure requires requiredQuantity === consumedQuantity + returnedQuantity
+  /// for every line - see runJobCardTransition's markCompleted reconciliation check.
+  consumedQuantity Int      @default(0)
+  /// Who last recorded consumedQuantity, and when - powers the Job Card Parts Timeline's
+  /// "Consumed" stage (User, Date & Time). Null until the Technician records consumption at least once.
+  consumedById     String?  @db.Uuid
+  consumedAt       DateTime?
+  createdAt        DateTime @default(now())
+  jobCard          JobCard  @relation(fields: [jobCardId], references: [id], onDelete: Cascade)
+  part             Part     @relation(fields: [partId], references: [id])
+  consumedBy       User?    @relation("JobCardSparePartConsumedBy", fields: [consumedById], references: [id])
+
+  @@unique([jobCardId, partId])
+  @@index([jobCardId])
+  @@index([partId])
+}
+
+/// A Technician's request to add spare parts to a Job Card, requiring Service TL (or Admin) approval
+/// before it takes effect. Approving a request increments the matching JobCardSparePart row (creating
+/// it if needed) and deducts Part.availableQuantity; reversing an approved request undoes both.
+/// This is a separate, additive path alongside the Service TL's existing direct spare-parts save
+/// (JobCardSparePart / saveJobCardSpareParts), which remains unchanged and unaffected by this table.
+model JobCardSparePartRequest {
+  id                String                 @id @default(uuid()) @db.Uuid
+  jobCardId         String                 @db.Uuid
+  partId            String                 @db.Uuid
+  requestedQuantity Int
+  /// Quantity actually approved, set only when status becomes APPROVED. May differ from
+  /// requestedQuantity if the Service TL edited it before approving; requestedQuantity itself
+  /// is never mutated so the Technician's original ask stays intact for audit.
+  approvedQuantity  Int?
+  status            SparePartRequestStatus @default(PENDING)
+  requestedById     String                 @db.Uuid
+  requestedAt       DateTime               @default(now())
+  decidedById       String?                @db.Uuid
+  decidedAt         DateTime?
+  decisionRemarks   String?
+  reversedById      String?                @db.Uuid
+  reversedAt        DateTime?
+  reversalRemarks   String?
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+
+  jobCard     JobCard @relation(fields: [jobCardId], references: [id], onDelete: Cascade)
+  part        Part    @relation(fields: [partId], references: [id])
+  requestedBy User    @relation("SparePartRequestedBy", fields: [requestedById], references: [id])
+  decidedBy   User?   @relation("SparePartDecidedBy", fields: [decidedById], references: [id])
+  reversedBy  User?   @relation("SparePartReversedBy", fields: [reversedById], references: [id])
+
+  @@index([jobCardId])
+  @@index([partId])
+  @@index([status])
+}
+
+/// A Technician's request to return unused approved spare parts, requiring Service TL (or Admin)
+/// approval before inventory actually moves - mirrors JobCardSparePartRequest's Request->Approve
+/// shape exactly, just for the reverse direction. Approving does not contain its own inventory
+/// logic: it calls the same repository method returnSparePartsToInventory already uses (validate
+/// remaining returnable, increment Part.availableQuantity, increment
+/// JobCardSparePart.returnedQuantity, write a RETURN ledger row) - this table only adds the
+/// staging/approval gate in front of it. Before approval: no inventory change, matching the
+/// Physical Issue Control Policy's return-side mirror.
+model JobCardSparePartReturnRequest {
+  id                      String                       @id @default(uuid()) @db.Uuid
+  jobCardId               String                       @db.Uuid
+  partId                  String                       @db.Uuid
+  requestedReturnQuantity Int
+  /// Quantity actually approved, set only when status becomes APPROVED. May differ from
+  /// requestedReturnQuantity if the Service TL edited it after physically verifying the parts.
+  approvedReturnQuantity  Int?
+  status                  SparePartReturnRequestStatus @default(PENDING)
+  requestedById           String                       @db.Uuid
+  requestedAt             DateTime                     @default(now())
+  decidedById             String?                      @db.Uuid
+  decidedAt               DateTime?
+  decisionRemarks         String?
+  createdAt               DateTime                     @default(now())
+  updatedAt               DateTime                     @updatedAt
+
+  jobCard     JobCard @relation(fields: [jobCardId], references: [id], onDelete: Cascade)
+  part        Part    @relation(fields: [partId], references: [id])
+  requestedBy User    @relation("SparePartReturnRequestedBy", fields: [requestedById], references: [id])
+  decidedBy   User?   @relation("SparePartReturnRequestDecidedBy", fields: [decidedById], references: [id])
+
+  @@index([jobCardId])
+  @@index([partId])
+  @@index([status])
+}
+
+/// Append-only inventory ledger - the single source of truth for stock movements. Every row is
+/// immutable once written; Part.availableQuantity is still the live running total (updated in the
+/// same transaction as each row), but this table is what "month-wise spares used" and similar
+/// reports are built from, since Part.availableQuantity alone has no history.
+///
+/// hubId/vehicleModelId/technicianId are reporting tags, denormalized at write time from the
+/// ticket's deployment/job card (both nullable - not every ticket has a deployment) - they do NOT
+/// drive any stock math, and this table does not give Part a per-hub balance. referenceType/
+/// referenceId point at whatever caused the movement (e.g. "SPARE_PART_REQUEST"/<request id>,
+/// "INVENTORY_IMPORT"/<import session id>, "MANUAL_ADJUSTMENT"/null) - a plain string pair, not a
+/// typed FK, matching how TicketActivity.metadata already records loosely-typed references elsewhere.
+model PartInventoryTransaction {
+  id              String              @id @default(uuid()) @db.Uuid
+  partId          String              @db.Uuid
+  transactionType PartTransactionType
+  /// Signed: positive on RECEIPT/RETURN, negative on ISSUE, either sign on ADJUSTMENT. Lets
+  /// consumption reports net ISSUE against RETURN with a single SUM.
+  quantityDelta   Int
+  /// Part.availableQuantity immediately after this row, captured in the same transaction.
+  balanceAfter    Int
+  hubId           String?             @db.Uuid
+  vehicleModelId  String?             @db.Uuid
+  technicianId    String?             @db.Uuid
+  jobCardId       String?             @db.Uuid
+  ticketId        String?             @db.Uuid
+  referenceType   String?
+  referenceId     String?
+  /// Part.partCost snapshot at write time, so historical reports stay accurate even if the master
+  /// rate changes later.
+  unitCost        Decimal?            @db.Decimal(12, 2)
+  /// quantityDelta * unitCost, signed, stored redundantly (not computed on read) so value-based
+  /// reports (Monthly Consumption in Rupees, Consumption by Hub in Rupees, etc.) are a plain groupBy
+  /// SUM instead of joining every row back to a cost.
+  totalValue      Decimal?            @db.Decimal(12, 2)
+  reason          String?
+  performedById   String              @db.Uuid
+  /// "YYYY-MM", computed server-side at insert time so month-wise reports are a plain groupBy
+  /// instead of a date-trunc query.
+  transactionMonth String
+  createdAt       DateTime            @default(now())
+
+  part        Part          @relation(fields: [partId], references: [id])
+  hub         Hub?          @relation(fields: [hubId], references: [id])
+  vehicleModel VehicleModel? @relation(fields: [vehicleModelId], references: [id])
+  technician  User?         @relation("PartInventoryTransactionTechnician", fields: [technicianId], references: [id])
+  jobCard     JobCard?      @relation(fields: [jobCardId], references: [id])
+  ticket      Ticket?       @relation(fields: [ticketId], references: [id])
+  performedBy User          @relation("PartInventoryTransactionPerformedBy", fields: [performedById], references: [id])
+
+  @@index([partId, createdAt])
+  @@index([transactionType])
+  @@index([hubId])
+  @@index([technicianId])
+  @@index([vehicleModelId])
+  @@index([jobCardId])
+  @@index([transactionMonth])
+}
+
+/// Spare-parts supplier master. Referenced by PurchaseOrder; procurement is a fully self-contained
+/// internal system (no external vendor/MMPL integration) - this is simply the address book of who
+/// a Purchase Order gets issued to.
+model Supplier {
+  id            String          @id @default(uuid()) @db.Uuid
+  supplierCode  String          @unique
+  name          String
+  contactPerson String?
+  phone         String?
+  email         String?
+  address       String?
+  gstNumber     String?
+  active        Boolean         @default(true)
+  deletedAt     DateTime?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  purchaseOrders PurchaseOrder[]
+
+  @@index([active])
+}
+
+/// A request to restock a Part, raised manually from Inventory (reason MANUAL/LOW_STOCK) or from a
+/// Job Card's Parts timeline when a spare-part request couldn't be approved due to insufficient
+/// stock (reason JOB_CARD_SHORTAGE, jobCardId set). Approving does not move stock itself - it only
+/// marks intent; a PurchaseOrderLine (optionally linked back via procurementRequestId) and its
+/// eventual GoodsReceiptNote are what actually move Part.availableQuantity. status advances to
+/// CONVERTED_TO_PO once a PO line references this request, and to CLOSED manually once fulfilled -
+/// v1 does not auto-derive CLOSED from GRN receipts.
+model ProcurementRequest {
+  id                String                   @id @default(uuid()) @db.Uuid
+  requestNumber     String                   @unique
+  partId            String                   @db.Uuid
+  requestedQuantity Int
+  reason            ProcurementRequestReason @default(MANUAL)
+  status            ProcurementRequestStatus @default(PENDING)
+  jobCardId         String?                  @db.Uuid
+  requestedById     String                   @db.Uuid
+  approvedById      String?                  @db.Uuid
+  decidedAt         DateTime?
+  remarks           String?
+  createdAt         DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
+
+  part               Part                @relation(fields: [partId], references: [id])
+  jobCard            JobCard?            @relation(fields: [jobCardId], references: [id])
+  requestedBy        User                @relation("ProcurementRequestRequestedBy", fields: [requestedById], references: [id])
+  approvedBy         User?               @relation("ProcurementRequestApprovedBy", fields: [approvedById], references: [id])
+  purchaseOrderLines PurchaseOrderLine[]
+
+  @@index([partId])
+  @@index([status])
+  @@index([jobCardId])
+}
+
+model PurchaseOrder {
+  id                   String              @id @default(uuid()) @db.Uuid
+  poNumber             String              @unique
+  supplierId           String              @db.Uuid
+  status               PurchaseOrderStatus @default(DRAFT)
+  /// Sum of all line totals, recomputed whenever lines change - stored redundantly so list views
+  /// don't need to aggregate lines on every read.
+  totalValue           Decimal             @default(0) @db.Decimal(12, 2)
+  createdById          String              @db.Uuid
+  issuedAt             DateTime?
+  expectedDeliveryDate DateTime?
+  remarks              String?
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+
+  supplier        Supplier                @relation(fields: [supplierId], references: [id])
+  createdBy       User                    @relation("PurchaseOrderCreatedBy", fields: [createdById], references: [id])
+  lines           PurchaseOrderLine[]
+  /// Receipt is recorded via Inventory Upload, not a separate Goods Receipt document - a Service TL
+  /// tags an upload against this PO and the matching lines' receivedQuantity increments on confirm.
+  inventoryUploads PartsInventoryUpload[]
+
+  @@index([supplierId])
+  @@index([status])
+}
+
+model PurchaseOrderLine {
+  id                   String  @id @default(uuid()) @db.Uuid
+  purchaseOrderId      String  @db.Uuid
+  partId               String  @db.Uuid
+  /// Nullable - a PO line can exist without a linked request (a supplier restock the Service TL
+  /// just decided to place directly), or link back to the request it was raised to fulfil.
+  procurementRequestId String? @db.Uuid
+  orderedQuantity      Int
+  /// Running total received, incremented when a Service TL's Inventory Upload is tagged against
+  /// this PO and confirmed. Remaining receivable = orderedQuantity - receivedQuantity.
+  receivedQuantity     Int     @default(0)
+  unitCost             Decimal @db.Decimal(12, 2)
+  lineTotal            Decimal @db.Decimal(12, 2)
+
+  purchaseOrder      PurchaseOrder       @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  part               Part                @relation(fields: [partId], references: [id])
+  procurementRequest ProcurementRequest? @relation(fields: [procurementRequestId], references: [id])
+
+  @@index([purchaseOrderId])
+  @@index([partId])
+  @@index([procurementRequestId])
+}
+
+/// One row per confirmed Parts Inventory Import upload - the original workbook is kept (like
+/// JobCardPdfHistory keeps generated PDFs) so an admin can re-download exactly what was uploaded to
+/// verify a RECEIPT figure later. fileContent is nullable only for the edge case where the in-memory
+/// preview session was lost between preview and confirm (e.g. a server restart) - the stats are still
+/// recorded even then, just without the file to re-download.
+model PartsInventoryUpload {
+  id                 String   @id @default(uuid()) @db.Uuid
+  fileName           String
+  fileContent        Bytes?
+  fileSizeBytes       Int
+  totalRows           Int
+  successfulRows       Int
+  failedRows           Int
+  partsCreated         Int
+  partsUpdated         Int
+  totalQuantityAdded   Int
+  totalValue           Decimal  @db.Decimal(14, 2)
+  /// The MMPL supplier invoice this stock physically arrived against - required on every upload.
+  /// This is what makes Inventory Upload double as the receipt record; there is no separate GRN.
+  invoiceNumber        String
+  /// Optional - set when this upload is receiving against a specific issued Purchase Order. On
+  /// confirm, matching PurchaseOrderLine.receivedQuantity is incremented and the PO's status
+  /// recomputed (RECEIVED / PARTIALLY_RECEIVED), the same way a GRN confirmation used to.
+  purchaseOrderId      String?  @db.Uuid
+  uploadedById         String   @db.Uuid
+  uploadedAt           DateTime @default(now())
+
+  uploadedBy           User          @relation(fields: [uploadedById], references: [id])
+  purchaseOrder        PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id])
+
+  @@index([uploadedAt])
+  @@index([uploadedById])
+  @@index([purchaseOrderId])
+}
+
+/// Service Policy module (TAT & SLA Framework) - the single source of truth for Priority, SLA,
+/// and configuration versioning. Ticket.priority (the enum, above) is left completely untouched
+/// for backward compatibility; PriorityDefinition is an additive, admin-configurable metadata
+/// layer that new code (Service Policy UI, SLA engine, Ticket Workspace) reads instead. legacyValue
+/// maps each of today's 4 rows back to the enum value it mirrors, so existing tickets can be
+/// backfilled onto priorityDefinitionId without any behavioral change to legacy code paths.
+model PriorityDefinition {
+  id          String    @id @default(uuid()) @db.Uuid
+  code        String    @unique
+  legacyValue Priority?
+  displayName String
+  colorHex    String
+  description String?
+  sortOrder   Int
+  active      Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  defaultPriorityRules DefaultPriorityRule[]
+  workshopSlaTarget    WorkshopSlaTarget?
+  stageSlaTargets      StageSlaTarget[]
+  tickets              Ticket[]
+
+  @@index([active])
+  @@index([sortOrder])
+}
+
+/// Automatic priority assignment at ticket creation. Deliberately a small fixed vocabulary
+/// (condition/operator/value), not a generic rule engine - mirrors the frozen spec's own
+/// two-condition example (Vehicle Stopped / Vehicle Rideable).
+model DefaultPriorityRule {
+  id                   String   @id @default(uuid()) @db.Uuid
+  condition            String
+  operator             String
+  value                String
+  priorityDefinitionId String   @db.Uuid
+  active               Boolean  @default(true)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  priorityDefinition PriorityDefinition @relation(fields: [priorityDefinitionId], references: [id])
+
+  @@index([priorityDefinitionId])
+}
+
+/// Vehicle Downtime SLA (the primary KPI): Ticket Created -> Ready For Deployment, target
+/// configurable per priority.
+model WorkshopSlaTarget {
+  id                   String   @id @default(uuid()) @db.Uuid
+  priorityDefinitionId String   @unique @db.Uuid
+  durationValue        Int
+  durationUnit         String   // HOURS | BUSINESS_DAYS
+  active               Boolean  @default(true)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  priorityDefinition PriorityDefinition @relation(fields: [priorityDefinitionId], references: [id])
+}
+
+/// Per-stage, per-priority accountability SLA targets (Ticket Response, Technician Assignment,
+/// Initial Diagnosis, Spare Approval, Repair, Redeployment, Ticket Closure).
+model StageSlaTarget {
+  id                   String   @id @default(uuid()) @db.Uuid
+  stageKey             String
+  priorityDefinitionId String   @db.Uuid
+  ownerRole            String   // COORDINATOR | SERVICE_TL | TECHNICIAN
+  durationValue        Int
+  durationUnit         String   // MINUTES | HOURS | BUSINESS_DAYS
+  active               Boolean  @default(true)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  priorityDefinition PriorityDefinition @relation(fields: [priorityDefinitionId], references: [id])
+
+  @@unique([stageKey, priorityDefinitionId])
+}
+
+/// Admin-configurable SLA Status thresholds (On Track / At Risk / Delayed / Completed / Completed
+/// Late). Single active row today; modeled as a table (not a hardcoded constant) for consistency
+/// and future extensibility.
+model SlaStatusRule {
+  id                 String   @id @default(uuid()) @db.Uuid
+  atRiskThresholdPct Int      @default(20)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+/// Coarse (ticket-level, not per-stage-clock-start) configuration versioning: every Service Policy
+/// write creates a new row and flips isCurrent off the previous one. Ticket.servicePolicyVersionId
+/// stamps whichever version was current when the ticket was created.
+model ServicePolicyVersion {
+  id            String   @id @default(uuid()) @db.Uuid
+  versionLabel  String
+  effectiveFrom DateTime @default(now())
+  createdById   String?  @db.Uuid
+  isCurrent     Boolean  @default(true)
+
+  createdBy User?    @relation(fields: [createdById], references: [id])
+  tickets   Ticket[]
+
+  @@index([isCurrent])
+}
+
+/// Immutable priority-change history for a ticket, enforcing the frozen lock rules (Coordinator
+/// only before Service TL assignment, Service TL only before Technician assignment, permanently
+/// locked once a Technician is assigned - no Admin override). Every row is also mirrored into the
+/// generic AuditLog for the cross-cutting audit trail.
+model TicketPriorityChange {
+  id                     String   @id @default(uuid()) @db.Uuid
+  ticketId               String   @db.Uuid
+  previousPriority        Priority
+  newPriority             Priority
+  reason                  String
+  changedById             String   @db.Uuid
+  changedByRole           Role
+  servicePolicyVersionId  String?  @db.Uuid
+  createdAt               DateTime @default(now())
+
+  ticket    Ticket @relation(fields: [ticketId], references: [id])
+  changedBy User   @relation(fields: [changedById], references: [id])
+
+  @@index([ticketId])
+}
+
+model TicketIssueItem {
+  id               String        @id @default(uuid()) @db.Uuid
+  ticketId         String        @db.Uuid
+  issueCategoryId  String        @db.Uuid
+  issueDescription String
+  issueStatus      String        @default("Open")
+  sequenceNumber   Int
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  issueSubcategory String?
+  issueCategory    IssueCategory @relation(fields: [issueCategoryId], references: [id])
+  ticket           Ticket        @relation(fields: [ticketId], references: [id])
+
+  @@index([ticketId])
+  @@index([issueCategoryId])
+  @@index([sequenceNumber])
+}
+
+model TicketAttachment {
+  id         String   @id @default(uuid()) @db.Uuid
+  ticketId   String   @db.Uuid
+  fileUrl    String
+  fileType   String
+  uploadedAt DateTime @default(now())
+  ticket     Ticket   @relation(fields: [ticketId], references: [id])
+
+  @@index([ticketId])
+}
+
+model TicketComment {
+  id          String   @id @default(uuid()) @db.Uuid
+  ticketId    String   @db.Uuid
+  comment     String
+  internal    Boolean  @default(false)
+  createdById String?  @db.Uuid
+  createdAt   DateTime @default(now())
+  createdBy   User?    @relation(fields: [createdById], references: [id])
+  ticket      Ticket   @relation(fields: [ticketId], references: [id])
+
+  @@index([ticketId])
+  @@index([createdById])
+}
+
+model NotificationLog {
+  id         String             @id @default(uuid()) @db.Uuid
+  ticketId   String             @db.Uuid
+  channel    String
+  message    String
+  status     NotificationStatus
+  responseId String?
+  sentAt     DateTime?
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
+  ticket     Ticket             @relation(fields: [ticketId], references: [id])
+
+  @@index([ticketId])
+  @@index([status])
+}
+
+model NotificationMessage {
+  id             String                @id @default(uuid()) @db.Uuid
+  templateId     String?               @db.Uuid
+  eventType      String
+  sourceModule   String
+  sourceEntityId String
+  channel        String
+  recipient      String
+  message        String
+  status         NotificationStatus
+  attemptCount   Int                   @default(0)
+  errorMessage   String?
+  readAt         DateTime?
+  archivedAt     DateTime?
+  responseId     String?
+  sentAt         DateTime?
+  /// Coordinator/Admin who triggered this send - the Communication Center audit trail's "Sent By".
+  /// Nullable because older rows and non-Communication-Center sends (e.g. system events) have no actor.
+  sentById       String?               @db.Uuid
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+  template       NotificationTemplate? @relation(fields: [templateId], references: [id])
+  sentBy         User?                 @relation("NotificationSentBy", fields: [sentById], references: [id])
+
+  @@index([status])
+  @@index([channel])
+  @@index([eventType])
+  @@index([sourceModule])
+  @@index([sourceEntityId])
+  @@index([readAt])
+  @@index([archivedAt])
+  @@index([sentById])
+}
+
+model NotificationTemplate {
+  id        String                @id @default(uuid()) @db.Uuid
+  name      String                @unique
+  eventType String
+  channel   String
+  subject   String?
+  content   String
+  active    Boolean               @default(true)
+  createdAt DateTime              @default(now())
+  updatedAt DateTime              @updatedAt
+  logs      NotificationMessage[]
+
+  @@index([eventType])
+  @@index([channel])
+  @@index([active])
+}
+
+model NotificationChannelSetting {
+  id         String   @id @default(uuid()) @db.Uuid
+  channel    String   @unique
+  enabled    Boolean  @default(true)
+  maxRetries Int      @default(3)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([enabled])
+}
+
+model TicketHistory {
+  id          String        @id @default(uuid()) @db.Uuid
+  ticketId    String        @db.Uuid
+  oldStatusId String?       @db.Uuid
+  newStatusId String        @db.Uuid
+  updatedById String?       @db.Uuid
+  updatedAt   DateTime      @default(now())
+  remarks     String?
+  newStatus   StatusMaster  @relation("NewStatus", fields: [newStatusId], references: [id])
+  oldStatus   StatusMaster? @relation("OldStatus", fields: [oldStatusId], references: [id])
+  ticket      Ticket        @relation(fields: [ticketId], references: [id])
+  updatedBy   User?         @relation("StatusUpdates", fields: [updatedById], references: [id])
+
+  @@index([ticketId])
+  @@index([oldStatusId])
+  @@index([newStatusId])
+}
+
+model TicketActivity {
+  id            String   @id @default(uuid()) @db.Uuid
+  ticketId      String   @db.Uuid
+  activityType  String
+  description   String
+  performedById String?  @db.Uuid
+  performedAt   DateTime
+  metadata      Json?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  performedBy   User?    @relation(fields: [performedById], references: [id])
+  ticket        Ticket   @relation(fields: [ticketId], references: [id])
+
+  @@index([ticketId])
+  @@index([performedAt])
+}
+
+model ConversationSession {
+  id                String    @id @default(uuid()) @db.Uuid
+  whatsappNumber    String    @unique
+  customerId        String?   @db.Uuid
+  currentTicketId   String?   @db.Uuid
+  currentState      String    @default("MAIN_MENU")
+  conversationData  Json      @default("{}")
+  lastInteractionAt DateTime  @default(now())
+  expiresAt         DateTime
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  customer          Customer? @relation(fields: [customerId], references: [id])
+
+  @@index([whatsappNumber])
+  @@index([currentState])
+  @@index([expiresAt])
+}
+
+model UserHub {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  hubId     String   @db.Uuid
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  hub       Hub      @relation(fields: [hubId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, hubId])
+  @@index([userId])
+  @@index([hubId])
+}
+
+model AppSetting {
+  id              String   @id @default(uuid()) @db.Uuid
+  category        String
+  settingKey      String   @unique
+  value           Json
+  editableByAdmin Boolean  @default(true)
+  updatedById     String?  @db.Uuid
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  updatedBy       User?    @relation("AppSettingUpdatedBy", fields: [updatedById], references: [id])
+
+  @@index([category])
+}
+
+model WorkbookConfiguration {
+  id                              String                   @id @default(uuid()) @db.Uuid
+  workbookType                    WorkbookType
+  workbookName                    String
+  workbookUrl                     String
+  storageProvider                 String                   @default("MICROSOFT_GRAPH")
+  sourceKind                      String                   @default("WORKBOOK")
+  isActive                        Boolean                  @default(true)
+  createdById                     String?                  @db.Uuid
+  updatedById                     String?                  @db.Uuid
+  createdAt                       DateTime                 @default(now())
+  updatedAt                       DateTime                 @updatedAt
+  operationalDatasetId            String?                  @db.Uuid
+  relationshipMappingsAsInventory RelationshipMapping[]    @relation("InventoryWorkbookRelationship")
+  relationshipMappingsAsMaster    RelationshipMapping[]    @relation("MasterWorkbookRelationship")
+  createdBy                       User?                    @relation("WorkbookConfigurationCreatedBy", fields: [createdById], references: [id])
+  operationalDataset              OperationalDataset?      @relation(fields: [operationalDatasetId], references: [id])
+  updatedBy                       User?                    @relation("WorkbookConfigurationUpdatedBy", fields: [updatedById], references: [id])
+  schemaVersions                  WorkbookSchemaVersion[]
+  worksheets                      WorksheetConfiguration[]
+
+  @@unique([workbookType, workbookName])
+  @@index([workbookType, isActive])
+  @@index([createdById])
+  @@index([updatedById])
+  @@index([operationalDatasetId])
+}
+
+model WorksheetConfiguration {
+  id                            String                  @id @default(uuid()) @db.Uuid
+  workbookConfigurationId       String                  @db.Uuid
+  worksheetName                 String
+  headerRow                     Int                     @default(1)
+  columnCount                   Int?
+  columnNames                   Json?
+  isSelected                    Boolean                 @default(true)
+  createdById                   String?                 @db.Uuid
+  updatedById                   String?                 @db.Uuid
+  createdAt                     DateTime                @default(now())
+  updatedAt                     DateTime                @updatedAt
+  columnMappings                ColumnMapping[]
+  inventoryRelationshipMappings RelationshipMapping[]   @relation("InventoryWorksheetRelationship")
+  masterRelationshipMappings    RelationshipMapping[]   @relation("MasterWorksheetRelationship")
+  schemaVersions                WorkbookSchemaVersion[]
+  createdBy                     User?                   @relation("WorksheetConfigurationCreatedBy", fields: [createdById], references: [id])
+  updatedBy                     User?                   @relation("WorksheetConfigurationUpdatedBy", fields: [updatedById], references: [id])
+  workbookConfiguration         WorkbookConfiguration   @relation(fields: [workbookConfigurationId], references: [id], onDelete: Cascade)
+
+  @@unique([workbookConfigurationId, worksheetName])
+  @@index([workbookConfigurationId, isSelected])
+  @@index([createdById])
+  @@index([updatedById])
+}
+
+model RelationshipMapping {
+  id                                String                  @id @default(uuid()) @db.Uuid
+  masterWorkbookConfigurationId     String                  @db.Uuid
+  inventoryWorkbookConfigurationId  String                  @db.Uuid
+  masterWorksheetConfigurationId    String?                 @db.Uuid
+  inventoryWorksheetConfigurationId String?                 @db.Uuid
+  relationshipType                  RelationshipType
+  primaryKey                        String
+  relationshipField                 String
+  confidence                        Decimal?                @db.Decimal(5, 2)
+  manualOverride                    Boolean                 @default(false)
+  version                           Int                     @default(1)
+  lastVerified                      DateTime?
+  createdById                       String?                 @db.Uuid
+  updatedById                       String?                 @db.Uuid
+  createdAt                         DateTime                @default(now())
+  updatedAt                         DateTime                @updatedAt
+  createdBy                         User?                   @relation("RelationshipMappingCreatedBy", fields: [createdById], references: [id])
+  inventoryWorkbookConfiguration    WorkbookConfiguration   @relation("InventoryWorkbookRelationship", fields: [inventoryWorkbookConfigurationId], references: [id], onDelete: Cascade)
+  inventoryWorksheetConfiguration   WorksheetConfiguration? @relation("InventoryWorksheetRelationship", fields: [inventoryWorksheetConfigurationId], references: [id])
+  masterWorkbookConfiguration       WorkbookConfiguration   @relation("MasterWorkbookRelationship", fields: [masterWorkbookConfigurationId], references: [id], onDelete: Cascade)
+  masterWorksheetConfiguration      WorksheetConfiguration? @relation("MasterWorksheetRelationship", fields: [masterWorksheetConfigurationId], references: [id])
+  updatedBy                         User?                   @relation("RelationshipMappingUpdatedBy", fields: [updatedById], references: [id])
+
+  @@unique([masterWorkbookConfigurationId, inventoryWorkbookConfigurationId, relationshipType, version])
+  @@index([primaryKey])
+  @@index([relationshipField])
+  @@index([createdById])
+  @@index([updatedById])
+}
+
+model ColumnMapping {
+  id                       String                 @id @default(uuid()) @db.Uuid
+  worksheetConfigurationId String                 @db.Uuid
+  sourceColumn             String
+  targetColumn             String
+  confidence               Decimal?               @db.Decimal(5, 2)
+  manualOverride           Boolean                @default(false)
+  mappingVersion           Int                    @default(1)
+  createdById              String?                @db.Uuid
+  updatedById              String?                @db.Uuid
+  createdAt                DateTime               @default(now())
+  updatedAt                DateTime               @updatedAt
+  createdBy                User?                  @relation("ColumnMappingCreatedBy", fields: [createdById], references: [id])
+  updatedBy                User?                  @relation("ColumnMappingUpdatedBy", fields: [updatedById], references: [id])
+  worksheetConfiguration   WorksheetConfiguration @relation(fields: [worksheetConfigurationId], references: [id], onDelete: Cascade)
+
+  @@unique([worksheetConfigurationId, sourceColumn, mappingVersion])
+  @@index([targetColumn])
+  @@index([createdById])
+  @@index([updatedById])
+}
+
+model WorkbookSchemaVersion {
+  id                       String                  @id @default(uuid()) @db.Uuid
+  workbookConfigurationId  String                  @db.Uuid
+  worksheetConfigurationId String?                 @db.Uuid
+  schemaVersion            Int                     @default(1)
+  schemaHash               String
+  columnCount              Int
+  columnNames              Json
+  headerOrder              Json
+  modifiedDate             DateTime?
+  detectedDate             DateTime                @default(now())
+  verifiedById             String?                 @db.Uuid
+  createdAt                DateTime                @default(now())
+  updatedAt                DateTime                @updatedAt
+  verifiedBy               User?                   @relation("WorkbookSchemaVersionVerifiedBy", fields: [verifiedById], references: [id])
+  workbookConfiguration    WorkbookConfiguration   @relation(fields: [workbookConfigurationId], references: [id], onDelete: Cascade)
+  worksheetConfiguration   WorksheetConfiguration? @relation(fields: [worksheetConfigurationId], references: [id])
+
+  @@unique([workbookConfigurationId, schemaHash])
+  @@index([worksheetConfigurationId, detectedDate])
+  @@index([verifiedById])
+}
+
+model SyncHistory {
+  id                   String              @id @default(uuid()) @db.Uuid
+  syncNumber           Int                 @unique
+  workbookVersion      String?
+  schemaVersion        String?
+  startedAt            DateTime
+  completedAt          DateTime?
+  durationMs           Int?
+  triggeredBy          SyncTriggerType
+  rowsRead             Int                 @default(0)
+  rowsInserted         Int                 @default(0)
+  rowsUpdated          Int                 @default(0)
+  rowsDeleted          Int                 @default(0)
+  rowsIgnored          Int                 @default(0)
+  rowsFailed           Int                 @default(0)
+  relationshipErrors   Int                 @default(0)
+  mappingErrors        Int                 @default(0)
+  validationErrors     Int                 @default(0)
+  status               SyncExecutionStatus
+  failureReason        String?
+  exception            String?
+  stackTrace           String?
+  initiatedById        String?             @db.Uuid
+  machine              String?
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+  operationalDatasetId String?             @db.Uuid
+  auditLogs            SyncAuditLog[]
+  initiatedBy          User?               @relation("SyncHistoryInitiatedBy", fields: [initiatedById], references: [id])
+  operationalDataset   OperationalDataset? @relation(fields: [operationalDatasetId], references: [id])
+  runs                 SyncRun[]
+
+  @@index([status])
+  @@index([startedAt])
+  @@index([triggeredBy])
+  @@index([initiatedById])
+  @@index([operationalDatasetId])
+}
+
+model SyncRun {
+  id                   String              @id @default(uuid()) @db.Uuid
+  syncHistoryId        String              @db.Uuid
+  stage                String
+  orderIndex           Int                 @default(0)
+  status               SyncExecutionStatus
+  startedAt            DateTime
+  completedAt          DateTime?
+  durationMs           Int?
+  rowsRead             Int                 @default(0)
+  rowsInserted         Int                 @default(0)
+  rowsUpdated          Int                 @default(0)
+  rowsDeleted          Int                 @default(0)
+  rowsIgnored          Int                 @default(0)
+  rowsFailed           Int                 @default(0)
+  relationshipErrors   Int                 @default(0)
+  mappingErrors        Int                 @default(0)
+  validationErrors     Int                 @default(0)
+  details              Json?
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+  operationalDatasetId String?             @db.Uuid
+  operationalDataset   OperationalDataset? @relation(fields: [operationalDatasetId], references: [id])
+  syncHistory          SyncHistory         @relation(fields: [syncHistoryId], references: [id], onDelete: Cascade)
+
+  @@unique([syncHistoryId, stage, orderIndex])
+  @@index([status])
+  @@index([operationalDatasetId])
+}
+
+model MicrosoftGraphToken {
+  id                    String    @id @default(uuid()) @db.Uuid
+  tenantId              String
+  clientId              String
+  encryptedAccessToken  String
+  encryptedRefreshToken String
+  tokenType             String
+  scope                 String
+  accessTokenExpiresAt  DateTime
+  acquiredAt            DateTime
+  revokedAt             DateTime?
+  lastError             String?
+  createdById           String?   @db.Uuid
+  updatedById           String?   @db.Uuid
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  createdBy             User?     @relation("MicrosoftGraphTokenCreatedBy", fields: [createdById], references: [id])
+  updatedBy             User?     @relation("MicrosoftGraphTokenUpdatedBy", fields: [updatedById], references: [id])
+
+  @@unique([tenantId, clientId])
+  @@index([accessTokenExpiresAt])
+  @@index([revokedAt])
+}
+
+model SyncAuditLog {
+  id                   String              @id @default(uuid()) @db.Uuid
+  syncHistoryId        String              @db.Uuid
+  level                SyncAuditLevel
+  event                String
+  message              String
+  payload              Json?
+  stackTrace           String?
+  machine              String?
+  user                 String?
+  createdAt            DateTime            @default(now())
+  operationalDatasetId String?             @db.Uuid
+  operationalDataset   OperationalDataset? @relation(fields: [operationalDatasetId], references: [id])
+  syncHistory          SyncHistory         @relation(fields: [syncHistoryId], references: [id], onDelete: Cascade)
+
+  @@index([syncHistoryId])
+  @@index([level])
+  @@index([createdAt])
+  @@index([operationalDatasetId])
+}
+
+model OperationalDataset {
+  id                       String                     @id @default(uuid()) @db.Uuid
+  datasetCode              String                     @unique
+  name                     String
+  description              String?
+  active                   Boolean                    @default(true)
+  healthStatus             DatasetHealthStatus        @default(HEALTHY)
+  lockVersion              Int                        @default(1)
+  lastSyncedAt             DateTime?
+  schedulerEnabled         Boolean                    @default(false)
+  schedulerFrequency       String                     @default("MANUAL")
+  schedulerLeaseOwner      String?
+  schedulerLeaseExpiresAt  DateTime?
+  schedulerHeartbeatAt     DateTime?
+  createdAt                DateTime                   @default(now())
+  updatedAt                DateTime                   @updatedAt
+  snapshots                DatasetSnapshot[]
+  datasetVersions          DatasetVersion[]
+  dryRunResults            DryRunResult[]
+  importSummaries          ImportSummary[]
+  microsoftGraphConnection MicrosoftGraphConnection?
+  lookupServices           OperationalLookupService[]
+  operationalProviders     OperationalProvider[]
+  relationshipValidations  RelationshipValidation[]
+  schemaValidations        SchemaValidation[]
+  schemaVersions           SchemaVersion[]
+  syncAuditLogs            SyncAuditLog[]
+  syncHistories            SyncHistory[]
+  syncRuns                 SyncRun[]
+  workbookConfigurations   WorkbookConfiguration[]
+  workbookMetadata         WorkbookMetadata[]
+  worksheetMetadata        WorksheetMetadata[]
+
+  @@index([active])
+  @@index([schedulerEnabled, schedulerFrequency])
+}
+
+model SchemaVersion {
+  id                   String             @id @default(uuid()) @db.Uuid
+  operationalDatasetId String             @db.Uuid
+  versionNumber        Int
+  workbookSchemaHash   String
+  worksheetSchemaHash  String
+  accepted             Boolean            @default(false)
+  acceptedAt           DateTime?
+  rejectedAt           DateTime?
+  notes                String?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  operationalDataset   OperationalDataset @relation(fields: [operationalDatasetId], references: [id], onDelete: Cascade)
+
+  @@unique([operationalDatasetId, versionNumber])
+  @@index([operationalDatasetId, workbookSchemaHash])
+}
+
+model DatasetVersion {
+  id                   String             @id @default(uuid()) @db.Uuid
+  operationalDatasetId String             @db.Uuid
+  versionNumber        Int
+  workbookVersion      String?
+  worksheetVersion     String?
+  committedAt          DateTime?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  snapshots            DatasetSnapshot[]
+  operationalDataset   OperationalDataset @relation(fields: [operationalDatasetId], references: [id], onDelete: Cascade)
+
+  @@unique([operationalDatasetId, versionNumber])
+  @@index([operationalDatasetId, committedAt])
+}
+
+model DatasetSnapshot {
+  id                   String             @id @default(uuid()) @db.Uuid
+  operationalDatasetId String             @db.Uuid
+  datasetVersionId     String?            @db.Uuid
+  snapshotKey          String
+  snapshotChecksum     String
+  payload              Json
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  datasetVersion       DatasetVersion?    @relation(fields: [datasetVersionId], references: [id])
+  operationalDataset   OperationalDataset @relation(fields: [operationalDatasetId], references: [id], onDelete: Cascade)
+
+  @@unique([operationalDatasetId, snapshotKey])
+  @@index([datasetVersionId])
+}
+
+model DryRunResult {
+  id                   String             @id @default(uuid()) @db.Uuid
+  operationalDatasetId String             @db.Uuid
+  rowsRead             Int                @default(0)
+  rowsValid            Int                @default(0)
+  rowsInvalid          Int                @default(0)
+  rowsInsert           Int                @default(0)
+  rowsUpdate           Int                @default(0)
+  rowsIgnore           Int                @default(0)
+  relationshipFailures Int                @default(0)
+  validationErrors     Int                @default(0)
+  mappingErrors        Int                @default(0)
+  previewChanges       Json?
+  createdByUser        String?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  operationalDataset   OperationalDataset @relation(fields: [operationalDatasetId], references: [id], onDelete: Cascade)
+
+  @@index([operationalDatasetId, createdAt])
+}
+
+model MicrosoftGraphConnection {
+  id                   String                @id @default(uuid()) @db.Uuid
+  operationalDatasetId String                @unique @db.Uuid
+  tenantId             String
+  clientId             String
+  siteId               String?
+  siteName             String?
+  documentLibraryId    String?
+  documentLibraryName  String?
+  status               GraphConnectionStatus @default(DISCONNECTED)
+  lastConnectedAt      DateTime?
+  lastError            String?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  operationalDataset   OperationalDataset    @relation(fields: [operationalDatasetId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+}
+
+model OperationalProvider {
+  id                   String             @id @default(uuid()) @db.Uuid
+  operationalDatasetId String             @db.Uuid
+  providerKey          String
+  providerType         String
+  enabled              Boolean            @default(true)
+  configuration        Json?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  operationalDataset   OperationalDataset @relation(fields: [operationalDatasetId], references: [id], onDelete: Cascade)
+
+  @@unique([operationalDatasetId, providerKey])
+}
+
+model OperationalLookupService {
+  id                   String             @id @default(uuid()) @db.Uuid
+  operationalDatasetId String             @db.Uuid
+  serviceKey           String
+  enabled              Boolean            @default(true)
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  operationalDataset   OperationalDataset @relation(fields: [operationalDatasetId], references: [id], onDelete: Cascade)
+
+  @@unique([operationalDatasetId, serviceKey])
+}
+
+model RelationshipValidation {
+  id                    String             @id @default(uuid()) @db.Uuid
+  operationalDatasetId  String             @db.Uuid
+  relationshipName      String
+  relationshipType      String
+  confidenceScore       Decimal            @db.Decimal(5, 2)
+  administratorAccepted Boolean            @default(false)
+  validationErrors      Int                @default(0)
+  orphanRecords         Int                @default(0)
+  duplicateKeys         Int                @default(0)
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+  operationalDataset    OperationalDataset @relation(fields: [operationalDatasetId], references: [id], onDelete: Cascade)
+
+  @@index([operationalDatasetId, administratorAccepted])
+}
+
+model SchemaValidation {
+  id                   String             @id @default(uuid()) @db.Uuid
+  operationalDatasetId String             @db.Uuid
+  schemaHash           String
+  warningCount         Int                @default(0)
+  errorCount           Int                @default(0)
+  acknowledged         Boolean            @default(false)
+  details              Json?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  operationalDataset   OperationalDataset @relation(fields: [operationalDatasetId], references: [id], onDelete: Cascade)
+
+  @@index([operationalDatasetId, schemaHash])
+}
+
+model WorkbookMetadata {
+  id                   String             @id @default(uuid()) @db.Uuid
+  operationalDatasetId String             @db.Uuid
+  workbookRole         WorkbookType
+  workbookId           String
+  workbookName         String
+  workbookUrl          String
+  modifiedDate         DateTime?
+  worksheetCount       Int                @default(0)
+  metadata             Json?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  operationalDataset   OperationalDataset @relation(fields: [operationalDatasetId], references: [id], onDelete: Cascade)
+
+  @@index([operationalDatasetId, workbookRole])
+}
+
+model WorksheetMetadata {
+  id                   String             @id @default(uuid()) @db.Uuid
+  operationalDatasetId String             @db.Uuid
+  workbookRole         WorkbookType
+  worksheetName        String
+  hidden               Boolean            @default(false)
+  headerRow            Int                @default(1)
+  columnCount          Int                @default(0)
+  columnNames          Json?
+  metadata             Json?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  operationalDataset   OperationalDataset @relation(fields: [operationalDatasetId], references: [id], onDelete: Cascade)
+
+  @@unique([operationalDatasetId, workbookRole, worksheetName])
+}
+
+model ImportSummary {
+  id                   String             @id @default(uuid()) @db.Uuid
+  operationalDatasetId String             @db.Uuid
+  commitMode           DatasetCommitMode
+  rowsRead             Int                @default(0)
+  rowsInserted         Int                @default(0)
+  rowsUpdated          Int                @default(0)
+  rowsIgnored          Int                @default(0)
+  rowsDeleted          Int                @default(0)
+  rowsFailed           Int                @default(0)
+  relationshipErrors   Int                @default(0)
+  validationErrors     Int                @default(0)
+  mappingErrors        Int                @default(0)
+  warnings             Json?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  operationalDataset   OperationalDataset @relation(fields: [operationalDatasetId], references: [id], onDelete: Cascade)
+
+  @@index([operationalDatasetId, commitMode, createdAt])
+}
+
+enum TicketSource {
+  WHATSAPP
+  PHONE
+  WALK_IN
+  ADMIN
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+/// DELIVERED/READ exist for forward-compatibility with a future real WhatsApp Business API
+/// integration (delivery-receipt webhooks) - no code path in this app can produce them today
+/// since sending is fully simulated. The Communication Center UI must not imply otherwise.
+enum NotificationStatus {
+  NOT_SENT
+  SENT
+  DELIVERED
+  READ
+  FAILED
+}
+
+enum Role {
+  ADMIN
+  COORDINATOR
+  TECHNICIAN
+  SERVICE_TL
+  SERVICE_MANAGER
+}
+
+enum RentalStatus {
+  ACTIVE
+  PENDING
+  COMPLETED
+  MAINTENANCE
+}
+
+enum CustomerStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum WorkbookType {
+  MASTER
+  INVENTORY
+}
+
+enum RelationshipType {
+  MASTER_TO_INVENTORY
+  INVENTORY_TO_MASTER
+}
+
+enum SyncExecutionStatus {
+  IDLE
+  RUNNING
+  SUCCESS
+  FAILED
+  PARTIAL
+}
+
+enum SyncTriggerType {
+  MANUAL
+  SCHEDULER
+}
+
+enum SyncAuditLevel {
+  INFO
+  WARN
+  ERROR
+}
+
+enum DatasetHealthStatus {
+  HEALTHY
+  WARNING
+  ERROR
+}
+
+enum DatasetCommitMode {
+  DRY_RUN
+  COMMIT
+}
+
+enum GraphConnectionStatus {
+  CONNECTED
+  DISCONNECTED
+  ERROR
+}
+
+enum ImportBatchStatus {
+  UPLOADED
+  VALIDATED
+  PREVIEWED
+  COMPLETED
+  CANCELLED
+  FAILED
+}
+
+enum ImportErrorSeverity {
+  WARNING
+  ERROR
+}
+
+enum TicketWorkflowStage {
+  CREATED
+  SERVICE_TL_REVIEW
+  CONSULTATION_RESOLVED
+  WORKSHOP_REQUIRED
+  RFD
+  REOPENED
+}
+
+enum JobCardStage {
+  IN_PROGRESS
+  WAITING_PARTS
+  COMPLETED
+  RFD
+}
+
+/// Technician-initiated spare part request lifecycle. PENDING -> APPROVED (inventory deducted) or
+/// REJECTED (stays visible with a reason, technician may submit a new request). APPROVED requests
+/// may later be moved to REVERSED (only from APPROVED - returns the deducted stock).
+enum SparePartRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  REVERSED
+}
+
+enum SparePartReturnRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+/// Every inventory movement is one of these. RECEIPT is written by Parts Inventory Import - the
+/// sole receipt mechanism; there is no separate Goods Receipt flow. ISSUE (spare part request
+/// approval), RETURN (spare part request reversal) and ADJUSTMENT (manual correction) are the
+/// others currently written by the app - the rest exist so the enum doesn't need another
+/// migration when transfers/warranty/scrap workflows are eventually built.
+enum PartTransactionType {
+  RECEIPT
+  ISSUE
+  RETURN
+  ADJUSTMENT
+  TRANSFER_OUT
+  TRANSFER_IN
+  WARRANTY_RETURN
+  SCRAP
+}
+
+enum ProcurementRequestReason {
+  LOW_STOCK
+  JOB_CARD_SHORTAGE
+  MANUAL
+}
+
+enum ProcurementRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CONVERTED_TO_PO
+  CLOSED
+}
+
+enum PurchaseOrderStatus {
+  DRAFT
+  ISSUED
+  PARTIALLY_RECEIVED
+  RECEIVED
+  CANCELLED
+}
+
+/// CANCELLATION: ticket was created by mistake and never should have existed.
+/// EARLY_CLOSURE: rider is closing their account / exchanging / upgrading their vehicle -
+/// the ticket closes but the Job Card (if any) is left exactly as-is, untouched.
+enum TicketClosureRequestType {
+  CANCELLATION
+  EARLY_CLOSURE
+}
+
+/// Only meaningful for EARLY_CLOSURE requests.
+enum TicketClosureReasonCategory {
+  ACCOUNT_CLOSURE
+  VEHICLE_EXCHANGE
+  VEHICLE_UPGRADE
+  OTHER
+}
+
+enum TicketClosureRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}

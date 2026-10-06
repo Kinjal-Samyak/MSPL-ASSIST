@@ -1,0 +1,14 @@
+import { Router } from "express";
+import { AuthController } from "../controllers/auth.controller";
+import { requireAccessToken } from "../middleware/auth.middleware";
+
+const router = Router();
+const controller = new AuthController();
+
+router.post("/login", controller.login);
+router.post("/logout", controller.logout);
+router.post("/refresh", controller.refresh);
+router.get("/me", requireAccessToken, controller.me);
+
+export default router;
+

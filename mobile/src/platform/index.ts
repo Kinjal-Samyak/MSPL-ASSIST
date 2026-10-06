@@ -1,0 +1,10 @@
+export type { ConnectivityService } from './ConnectivityService';
+export { connectivityService } from './ConnectivityServiceInstance';
+export type { OfflineManager } from './OfflineManager';
+export { offlineManager } from './OfflineManagerInstance';
+export type { SyncManager } from './SyncManager';
+export { syncManager } from './SyncManagerInstance';
+export type { NotificationManager } from './NotificationManager';
+export { notificationManager } from './NotificationManagerInstance';
+export type { BackgroundSyncManager, SyncScheduler, RetryScheduler } from './BackgroundSyncManager';
+export { backgroundSyncManager } from './BackgroundSyncManagerInstance';

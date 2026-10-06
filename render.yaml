@@ -1,0 +1,84 @@
+services:
+  - type: web
+    name: mspl-assist-backend
+    runtime: node
+    region: singapore
+    plan: starter
+    branch: main
+    rootDir: .
+    autoDeploy: true
+    # Backend and frontend depend on the @mspl/* packages via file:../packages/* references that
+    # resolve to each package's dist/ output (gitignored build output, not source) - build those
+    # first, from the workspace root, exactly like .github/workflows/build.yml does.
+    #
+    # --include=dev is required on every install: Render applies this service's env vars (incl.
+    # NODE_ENV=production, needed at runtime for config.isProduction) to the build phase too, and
+    # `npm install` under NODE_ENV=production silently skips devDependencies - which would strip
+    # typescript (breaks `npm run build`) and the prisma CLI (breaks `prisma generate`).
+    buildCommand: >-
+      npm install --include=dev &&
+      npm run build:shared &&
+      cd backend &&
+      npm install --include=dev &&
+      npm run prisma:generate &&
+      npm run build
+    startCommand: cd backend && npm run start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MSPL_RUNTIME_ENV
+        value: production
+      # PORT is provided automatically by Render at runtime - do not set it here.
+
+      # --- Database (Supabase) - set these in the Render dashboard, not in git ---
+      - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_URL
+        sync: false
+
+      # --- JWT / Authentication - set in the Render dashboard, not in git ---
+      - key: JWT_ACCESS_SECRET
+        sync: false
+      - key: JWT_REFRESH_SECRET
+        sync: false
+      - key: JWT_ACCESS_TOKEN_TTL_SECONDS
+        value: "900"
+      - key: JWT_REFRESH_TOKEN_TTL_SECONDS
+        value: "604800"
+      - key: AUTH_BCRYPT_SALT_ROUNDS
+        value: "12"
+      - key: DEFAULT_ADMIN_PASSWORD
+        sync: false
+
+      # --- Security (CORS + rate limiting) ---
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false
+      - key: RATE_LIMIT_GLOBAL_WINDOW_MS
+        value: "900000"
+      - key: RATE_LIMIT_GLOBAL_MAX
+        value: "300"
+      - key: RATE_LIMIT_AUTH_WINDOW_MS
+        value: "900000"
+      - key: RATE_LIMIT_AUTH_MAX
+        value: "20"
+
+      # --- Conversation session ---
+      - key: CONVERSATION_SESSION_TIMEOUT_HOURS
+        value: "24"
+
+      # --- Microsoft 365 / Graph (Operational Data Wizard) ---
+      # All six are required - the server refuses to start if any is missing, regardless of
+      # whether the Operational Data Wizard is in active use for this deployment.
+      - key: M365_TENANT_ID
+        sync: false
+      - key: M365_CLIENT_ID
+        sync: false
+      - key: M365_CLIENT_SECRET
+        sync: false
+      - key: M365_REDIRECT_URI
+        sync: false
+      - key: M365_SCOPES
+        value: "offline_access Files.Read Files.Read.All Sites.Read.All User.Read"
+      - key: M365_TOKEN_ENCRYPTION_KEY
+        sync: false

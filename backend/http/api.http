@@ -1,0 +1,41 @@
+@base = http://localhost:5080/api/v1
+@token = REPLACE_WITH_SUPABASE_ACCESS_TOKEN
+
+### Who am I
+GET {{base}}/me
+Authorization: Bearer {{token}}
+
+### List orders
+GET {{base}}/orders
+Authorization: Bearer {{token}}
+
+### Create order (admin/rajat only)
+POST {{base}}/orders
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "clientName": "Apex Logistics",
+  "piType": "Sale",
+  "quantity": 100,
+  "stateCode": "DL"
+}
+
+### Unassign a vehicle (preserves history, logs event)
+POST {{base}}/vehicles/VIN123/unassign
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "notes": "wrong lot" }
+
+### Vehicle assignment history
+GET {{base}}/vehicles/VIN123/assignment-events
+Authorization: Bearer {{token}}
+
+### Insurance history for a vehicle
+GET {{base}}/vehicles/VIN123/insurance
+Authorization: Bearer {{token}}
+
+### Policies expiring in 30 days
+GET {{base}}/insurance/expiring?withinDays=30
+Authorization: Bearer {{token}}
