@@ -8,6 +8,7 @@ export interface RentalUserResult {
 
 interface GetAllUsersRequest {
   name: string | null;
+  phonenumber?: string;
   roleid: null;
   hubid: null;
   userstatus: null;
@@ -96,14 +97,6 @@ function authToken(): string {
 function looksLikePhone(value: string): boolean {
   const compact = value.replace(/[\s()-]/g, '');
   return compact.length >= 4 && /^[+\d*]+$/.test(compact);
-}
-
-function phoneLookupUrl(listUrl: string, phone: string): string {
-  const url = new URL(listUrl);
-  url.pathname = url.pathname.replace(/\/GetAllUsers\/?$/i, '/GetUserByPhoneNumber');
-  url.search = '';
-  url.searchParams.set('phoneNumber', phone);
-  return url.toString();
 }
 
 function userByIdUrl(listUrl: string, userId: string): string {
@@ -196,7 +189,7 @@ export async function searchRentalUsers(query: string): Promise<RentalUserResult
   const listUrl = url.trim();
   const byPhone = looksLikePhone(trimmed);
   const body: GetAllUsersRequest = {
-    name: trimmed || null,
+    name: byPhone ? null : trimmed || null,
     roleid: null,
     hubid: null,
     userstatus: null,
@@ -206,16 +199,14 @@ export async function searchRentalUsers(query: string): Promise<RentalUserResult
     pageNumber: 1,
     pageSize: 20,
   };
-  const users = byPhone
-    ? await requestUsers(phoneLookupUrl(listUrl, trimmed.replace(/[^\d*]/g, '')), {
-        method: 'GET',
-        headers,
-      })
-    : await requestUsers(listUrl, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(body),
-      });
+  if (byPhone) {
+    body.phonenumber = trimmed.replace(/[^\d*]/g, '');
+  }
+  const users = await requestUsers(listUrl, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(body),
+  });
 
   return Promise.all(users.map((user) => revealPhone(listUrl, user, headers)));
 }

@@ -713,6 +713,18 @@ function RiderSearch({
   );
 }
 
+function Detail({ label, value }: { label: string; value?: string }) {
+  if (!value) {
+    return null;
+  }
+  return (
+    <p className="grid grid-cols-[8.75rem_1fr] text-sm text-slate-300">
+      <span className="text-slate-400">{label}</span>
+      <span>: {value}</span>
+    </p>
+  );
+}
+
 function VehicleStep({
   rider,
   vehicles,
@@ -750,22 +762,13 @@ function VehicleStep({
             onClick={() => onSelect(item)}
             className={`w-full rounded-xl border p-3 text-left ${selected?.vehicleNumber === item.vehicleNumber ? 'border-yellow-400 bg-yellow-400/10' : 'border-slate-700 bg-slate-900'}`}
           >
-            {item.planName || item.contactName ? (
+            {item.bookingId || item.planName || item.vehicleName ? (
               <>
-                <p className="font-semibold text-slate-100">{item.vehicleModel || 'Vehicle'}</p>
-                {(item.contactName || item.contactPhone) && (
-                  <p className="text-sm text-slate-300">
-                    {[item.contactName, item.contactPhone ? displayPhone(item.contactPhone) : '']
-                      .filter(Boolean)
-                      .join(' · ')}
-                  </p>
-                )}
-                <p className="text-sm text-slate-300">
-                  {[item.planName, item.hub].filter(Boolean).join(' · ')}
-                </p>
-                {item.batteryNumber && (
-                  <p className="text-sm text-slate-400">Vehicle number: {item.batteryNumber}</p>
-                )}
+                <Detail label="Vehicle name" value={item.vehicleName} />
+                <Detail label="Model" value={item.vehicleModel} />
+                <Detail label="Vehicle number" value={item.batteryNumber} />
+                <Detail label="Plan name" value={item.planName} />
+                <Detail label="Booking id" value={item.bookingId} />
               </>
             ) : (
               <>

@@ -33,23 +33,70 @@ function bookingsRequestUrl(userId: string): string {
   return target.toString();
 }
 
-function toVehicle(item: Record<string, unknown>): CustomerVehicleResponse | null {
-  const bookingId = readString(item, ['bookingmasterid', 'bookinguid']);
+function readModelList(payload: unknown): unknown[] {
+  if (Array.isArray(payload)) {
+    return payload;
+  }
+  if (payload != null && typeof payload === 'object') {
+    const data = (payload as { data?: unknown }).data;
+    if (Array.isArray(data)) {
+      return data;
+    }
+  }
+  return [];
+}
+
+async function vehicleModelNames(): Promise<Map<string, string>> {
+  const configured = import.meta.env.VITE_RENTAL_VEHICLE_MODELS_URL;
+  if (typeof configured !== 'string' || !configured.trim()) {
+    return new Map();
+  }
+
+  try {
+    const response = await fetch(configured.trim(), { headers: rentalRequestHeaders() });
+    if (!response.ok) {
+      return new Map();
+    }
+    const names = new Map<string, string>();
+    for (const item of readModelList(await response.json())) {
+      if (item == null || typeof item !== 'object') {
+        continue;
+      }
+      const record = item as Record<string, unknown>;
+      const code = readString(record, ['codevalue']);
+      const name = readString(record, ['codedisplayname']);
+      if (code && name) {
+        names.set(code, name);
+      }
+    }
+    return names;
+  } catch {
+    return new Map();
+  }
+}
+
+function toVehicle(
+  item: Record<string, unknown>,
+  modelNames: Map<string, string>
+): CustomerVehicleResponse | null {
+  const bookingId = readString(item, ['bookingmasterid']);
   const vehicleName = readString(item, ['vehiclename']);
-  const vehicleNumber = readString(item, ['vehiclenum', 'registrationnumber']);
+  const vehicleNumber = readString(item, ['vehiclenum']);
   const plan = item.bookingPlanModel;
   const planRecord =
     plan != null && typeof plan === 'object' ? (plan as Record<string, unknown>) : null;
   const planName =
     readString(item, ['planname']) || (planRecord ? readString(planRecord, ['planname']) : '');
   const planStart = planRecord ? readString(planRecord, ['planstartdate']) : '';
-  if (!bookingId && !vehicleName && !vehicleNumber) {
+  const modelId = readString(item, ['vehiclemodelid']);
+  const modelName = modelNames.get(modelId) || '';
+  if (!bookingId && !vehicleName && !vehicleNumber && !modelName) {
     return null;
   }
 
   return {
-    vehicleNumber: vehicleNumber || `booking-${bookingId || vehicleName}`,
-    vehicleModel: vehicleName,
+    vehicleNumber: vehicleNumber || `booking-${bookingId || vehicleName || modelId}`,
+    vehicleModel: modelName,
     batteryNumber: vehicleNumber,
     hub: readString(item, ['hubname']),
     deploymentDate: planStart || readString(item, ['createdon']),
@@ -57,6 +104,8 @@ function toVehicle(item: Record<string, unknown>): CustomerVehicleResponse | nul
     planName,
     contactName: readString(item, ['name']),
     contactPhone: readString(item, ['phonenumber']),
+    vehicleName,
+    bookingId,
   };
 }
 
@@ -93,9 +142,12 @@ export async function getBookingsByUserId(userId: string): Promise<CustomerVehic
   }
 
   const items = Array.isArray(payload.data) ? payload.data : [];
+  const modelNames = await vehicleModelNames();
   return items
     .map((item) =>
-      item != null && typeof item === 'object' ? toVehicle(item as Record<string, unknown>) : null
+      item != null && typeof item === 'object'
+        ? toVehicle(item as Record<string, unknown>, modelNames)
+        : null
     )
     .filter((item): item is CustomerVehicleResponse => item != null);
 }

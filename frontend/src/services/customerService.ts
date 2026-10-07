@@ -29,6 +29,8 @@ export interface CustomerVehicleResponse {
   planName?: string;
   contactName?: string;
   contactPhone?: string;
+  vehicleName?: string;
+  bookingId?: string;
 }
 
 export interface CustomerListQuery {
