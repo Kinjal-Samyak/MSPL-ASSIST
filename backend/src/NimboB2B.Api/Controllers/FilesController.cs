@@ -45,7 +45,7 @@ public sealed class FilesController(IFileStore store, IOptions<LocalFileStoreOpt
 
         var relative = store.NormalizePath(relativePath);
         var display = string.IsNullOrWhiteSpace(name) ? null : Path.GetFileName(name.Trim());
-        var expected = Sign(LocalFileStore.SignPayload(relative, exp, display), opt.Value.DownloadSigningKey);
+        var expected = ComputeSignature(LocalFileStore.SignPayload(relative, exp, display), opt.Value.DownloadSigningKey);
         if (!FixedTimeEquals(sig, expected)) return Unauthorized("Invalid signature.");
 
         var stream = await store.OpenReadAsync(relative, ct);
@@ -89,7 +89,7 @@ public sealed class FilesController(IFileStore store, IOptions<LocalFileStoreOpt
         return CryptographicOperations.FixedTimeEquals(Encoding.UTF8.GetBytes(a), Encoding.UTF8.GetBytes(b));
     }
 
-    private static string Sign(string payload, string key)
+    private static string ComputeSignature(string payload, string key)
     {
         using var h = new HMACSHA256(Encoding.UTF8.GetBytes(key));
         return Convert.ToHexString(h.ComputeHash(Encoding.UTF8.GetBytes(payload))).ToLowerInvariant();

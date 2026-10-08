@@ -16,7 +16,7 @@ public sealed class ClientService(AppDbContext db, IFileStore files)
         var orderCounts = await db.Orders.AsNoTracking()
             .Where(o => o.ClientId != null)
             .GroupBy(o => o.ClientId!)
-            .Select(g => new { ClientId = g.Key, Count = g.Count() })
+            .Select(g => new { ClientId = g.Key!.Value, Count = g.Count() })
             .ToDictionaryAsync(x => x.ClientId, x => x.Count, ct);
         return clients.Select(c => ToWire(c, orderCounts.TryGetValue(c.Id, out var n) ? n : 0)).ToList();
     }
