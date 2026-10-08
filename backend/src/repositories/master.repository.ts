@@ -7,13 +7,24 @@ import type {
   PrismaClient,
 } from "@prisma/client";
 
+function registeredMobileLookupValues(registeredMobile: string): string[] {
+  const digits = registeredMobile.replace(/\D/g, '');
+  const values = new Set<string>([digits]);
+  if (digits.startsWith('91') && digits.length > 10) {
+    values.add(digits.slice(2));
+  } else if (digits.length === 10) {
+    values.add(`91${digits}`);
+  }
+  return [...values];
+}
+
 export class MasterRepository {
   constructor(private prisma: PrismaClient) {}
 
   async findCustomerByRegisteredMobile(registeredMobile: string): Promise<Customer | null> {
     return this.prisma.customer.findFirst({
       where: {
-        registeredMobile,
+        registeredMobile: { in: registeredMobileLookupValues(registeredMobile) },
       },
     });
   }

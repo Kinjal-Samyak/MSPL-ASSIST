@@ -207,8 +207,13 @@ export function CreateTicketWizardModal({
     setRentalMessage('');
     setLoading(true);
     try {
-      const searches = [user.name, user.phone.replace(/\D/g, '')].filter(
-        (value) => value.length > 0
+      const phoneDigits = user.phone.replace(/\D/g, '');
+      const phoneWithoutCountry =
+        phoneDigits.startsWith('91') && phoneDigits.length > 10
+          ? phoneDigits.slice(2)
+          : phoneDigits;
+      const searches = [user.name, phoneDigits, phoneWithoutCountry].filter(
+        (value, index, all) => value.length > 0 && all.indexOf(value) === index
       );
       const bookingsRequest = getBookingsByUserId(user.id).then(
         (vehicles) => ({ vehicles, message: '' }),
@@ -239,13 +244,14 @@ export function CreateTicketWizardModal({
           seen.add(item.customerId);
           return true;
         });
-      const phoneDigits = user.phone.replace(/\D/g, '');
       const name = user.name.trim().toLowerCase();
       const match =
-        candidates.find(
-          (item) =>
-            phoneDigits.length >= 4 && item.mobileNumber.replace(/\D/g, '').endsWith(phoneDigits)
-        ) ?? candidates.find((item) => item.customerName.trim().toLowerCase() === name);
+        candidates.find((item) => {
+          const saved = item.mobileNumber.replace(/\D/g, '');
+          const savedWithoutCountry =
+            saved.startsWith('91') && saved.length > 10 ? saved.slice(2) : saved;
+          return phoneWithoutCountry.length >= 4 && savedWithoutCountry === phoneWithoutCountry;
+        }) ?? candidates.find((item) => item.customerName.trim().toLowerCase() === name);
 
       await selectRider(
         match ?? {
