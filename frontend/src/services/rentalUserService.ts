@@ -73,25 +73,90 @@ function toRentalUser(item: unknown, index: number): RentalUserResult | null {
   return { id, name, phone, email, role };
 }
 
-export function rentalRequestHeaders(): Record<string, string> {
+const rentalTokenStorageKey = 'motovolt_auth_token';
+let cachedRentalToken = '';
+
+function readEnv(name: string): string {
+  const value = import.meta.env[name];
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function tokenExpired(token: string): boolean {
+  const raw = token.replace(/^bearer\s+/i, '');
+  const payload = raw.split('.')[1];
+  if (!payload) {
+    return false;
+  }
+  try {
+    const claims = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/'))) as {
+      exp?: number;
+    };
+    return typeof claims.exp === 'number' && claims.exp * 1000 <= Date.now();
+  } catch {
+    return false;
+  }
+}
+
+function storedRentalToken(): string {
+  try {
+    return localStorage.getItem(rentalTokenStorageKey)?.trim() ?? '';
+  } catch {
+    return '';
+  }
+}
+
+export async function ensureRentalToken(): Promise<string> {
+  if (cachedRentalToken && !tokenExpired(cachedRentalToken)) {
+    return cachedRentalToken;
+  }
+
+  const loginUrl = readEnv('VITE_RENTAL_LOGIN_URL');
+  if (!loginUrl) {
+    const configured = readEnv('VITE_RENTAL_USERS_API_TOKEN') || storedRentalToken();
+    cachedRentalToken = configured;
+    return configured;
+  }
+
+  const response = await fetch(loginUrl, {
+    method: 'POST',
+    headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      name: readEnv('VITE_RENTAL_LOGIN_NAME'),
+      mobileNumber: readEnv('VITE_RENTAL_LOGIN_MOBILE'),
+      password: readEnv('VITE_RENTAL_LOGIN_PASSWORD'),
+      appversion: readEnv('VITE_RENTAL_LOGIN_APP_VERSION') || '5.1',
+    }),
+  });
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(text.trim() || 'Rental login failed.');
+  }
+
+  const payload = (await response.json()) as { token?: unknown; message?: unknown };
+  const token = typeof payload.token === 'string' ? payload.token.trim() : '';
+  if (!token) {
+    const message = payload.message;
+    throw new Error(
+      typeof message === 'string' && message.trim() ? message : 'Rental login failed.'
+    );
+  }
+
+  cachedRentalToken = token;
+  try {
+    localStorage.setItem(rentalTokenStorageKey, token);
+  } catch {
+    // The in-memory token is still used for this session.
+  }
+  return token;
+}
+
+export async function rentalRequestHeaders(): Promise<Record<string, string>> {
   const headers: Record<string, string> = { Accept: 'application/json' };
-  const token = authToken();
+  const token = await ensureRentalToken();
   if (token) {
     headers.Authorization = token.toLowerCase().startsWith('bearer ') ? token : `Bearer ${token}`;
   }
   return headers;
-}
-
-function authToken(): string {
-  const configured = import.meta.env.VITE_RENTAL_USERS_API_TOKEN;
-  if (typeof configured === 'string' && configured.trim()) {
-    return configured.trim();
-  }
-  try {
-    return localStorage.getItem('motovolt_auth_token')?.trim() ?? '';
-  } catch {
-    return '';
-  }
 }
 
 function looksLikePhone(value: string): boolean {
@@ -184,7 +249,7 @@ export async function searchRentalUsers(query: string): Promise<RentalUserResult
   }
 
   const trimmed = query.trim();
-  const headers = { ...rentalRequestHeaders(), 'Content-Type': 'application/json' };
+  const headers = { ...(await rentalRequestHeaders()), 'Content-Type': 'application/json' };
 
   const listUrl = url.trim();
   const byPhone = looksLikePhone(trimmed);

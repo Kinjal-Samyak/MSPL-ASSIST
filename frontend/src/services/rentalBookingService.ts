@@ -53,7 +53,7 @@ async function vehicleModelNames(): Promise<Map<string, string>> {
   }
 
   try {
-    const response = await fetch(configured.trim(), { headers: rentalRequestHeaders() });
+    const response = await fetch(configured.trim(), { headers: await rentalRequestHeaders() });
     if (!response.ok) {
       return new Map();
     }
@@ -119,7 +119,7 @@ export async function getBookingsByUserId(userId: string): Promise<CustomerVehic
   try {
     response = await fetch(bookingsRequestUrl(trimmedId), {
       method: 'POST',
-      headers: { ...rentalRequestHeaders(), 'Content-Type': 'application/json' },
+      headers: { ...(await rentalRequestHeaders()), 'Content-Type': 'application/json' },
     });
   } catch {
     throw new Error('Booking service is not reachable. Start it on port 5158 and try again.');

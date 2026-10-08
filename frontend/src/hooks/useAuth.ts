@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/store';
 import { authService } from '@/services/authService';
+import { ensureRentalToken } from '@/services/rentalUserService';
 import type { LoginCredentials } from '@/types';
 
 export function useAuth() {
@@ -15,6 +16,7 @@ export function useAuth() {
       try {
         const result = await authService.login(credentials);
         setSession(result.user, result.tokens.accessToken, result.tokens.refreshToken);
+        void ensureRentalToken().catch(() => undefined);
         navigate('/dashboard');
       } finally {
         setLoading(false);
