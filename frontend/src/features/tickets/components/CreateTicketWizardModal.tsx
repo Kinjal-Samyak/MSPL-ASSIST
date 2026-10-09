@@ -24,6 +24,29 @@ import {
   validateConversationSubmission,
 } from '@/features/tickets/utils/conversation.validation';
 
+async function registeredMobileForTicket(rider: CustomerSearchItem): Promise<string> {
+  const digits = rider.mobileNumber.replace(/\D/g, '');
+  if (rider.customerId) {
+    return digits;
+  }
+
+  const page = await customerService.searchCustomers({
+    page: 1,
+    pageSize: 20,
+    search: digits,
+  });
+  const exact = page.items.find((item) => item.mobileNumber.replace(/\D/g, '') === digits);
+  if (exact) {
+    return exact.mobileNumber.replace(/\D/g, '');
+  }
+
+  await customerService.createCustomer({
+    customerName: rider.customerName.trim(),
+    registeredMobile: digits,
+  });
+  return digits;
+}
+
 export interface CreateTicketSubmission {
   customerId: string;
   registeredMobile: string;
@@ -414,8 +437,9 @@ export function CreateTicketWizardModal({
     if (!rider || !vehicle || !rideability) return;
     patch({ submissionStatus: 'SUBMITTING', validation: { ...state.validation, submission: '' } });
     try {
+      const registeredMobile = await registeredMobileForTicket(rider);
       const created = await ticketService.createConversationTicket({
-        registeredMobile: rider.mobileNumber,
+        registeredMobile,
         mvTrackNumber: vehicle.batteryNumber,
         vehicleNumber: vehicle.vehicleNumber,
         rideabilityStatus: rideability === 'RIDEABLE' ? 'MOVABLE' : 'NOT_MOVABLE',
